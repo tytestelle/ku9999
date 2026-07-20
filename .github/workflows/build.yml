@@ -29,29 +29,64 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      # 检查文件结构，帮助调试
-      - name: List project structure
+      # 复制根目录下的源码和资源到标准 Android 目录（这是构建必需的）
+      - name: Copy source and resource files to standard locations
         run: |
-          echo "=== Root directory ==="
-          ls -la
-          echo "=== android/app/src/main/java/com/ku9/player ==="
-          ls -la android/app/src/main/java/com/ku9/player || echo "Directory not found"
-          echo "=== android/app/src/main/res/layout ==="
-          ls -la android/app/src/main/res/layout || echo "Directory not found"
+          # 创建必要的目录（如果不存在）
+          mkdir -p android/app/src/main/java/com/ku9/player
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/values
 
-      - name: Build with full debug logs
+          # 复制 Kotlin 源文件（如果有）
+          if [ -f MainActivity.kt ]; then
+            cp MainActivity.kt android/app/src/main/java/com/ku9/player/
+          fi
+          if [ -f SourceManager.kt ]; then
+            cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/
+          fi
+          if [ -f StorageManager.kt ]; then
+            cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/
+          fi
+          # 其他文件类似...（你也可以用通配符复制整个目录）
+
+          # 复制布局文件
+          if [ -f activity_main.xml ]; then
+            cp activity_main.xml android/app/src/main/res/layout/
+          fi
+          if [ -f item_channel.xml ]; then
+            cp item_channel.xml android/app/src/main/res/layout/
+          fi
+          if [ -f item_group.xml ]; then
+            cp item_group.xml android/app/src/main/res/layout/
+          fi
+
+          # 复制 values 资源
+          if [ -d values ]; then
+            cp -r values/* android/app/src/main/res/values/
+          fi
+
+          # 复制 AndroidManifest.xml（如果根目录有）
+          if [ -f AndroidManifest.xml ]; then
+            cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          fi
+
+          echo "File copy complete."
+
+      - name: Build APK
         run: |
           cd android
-          gradle assembleDebug --stacktrace --debug --no-daemon 2>&1 | tee build.log
-          if [ $? -ne 0 ]; then
-            echo "=== Last 500 lines of build.log ==="
-            tail -n 500 build.log
-            exit 1
-          fi
+          gradle assembleDebug --stacktrace --info --no-daemon
+
+      - name: Find and upload APK
+        run: |
+          echo "=== Searching for APK files ==="
+          find android -name "*.apk" -type f
+        shell: bash
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
