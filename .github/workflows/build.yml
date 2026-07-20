@@ -84,49 +84,38 @@ jobs:
           EOF
 
           # ============================================================
-          # 🔥 关键修复：生成完整的 attrs.xml，声明所有自定义属性
+          # 🔥 全局属性声明（所有属性置于根节点，供任意 View 直接使用）
           # ============================================================
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <!-- PlayerView 相关属性 -->
-              <declare-styleable name="PlayerView">
-                  <attr name="use_controller" format="boolean" />
-                  <attr name="controller" format="boolean" />
-                  <attr name="player" format="reference" />
-                  <attr name="surface_type" format="enum">
-                      <enum name="surface_view" value="0" />
-                      <enum name="texture_view" value="1" />
-                      <enum name="spherical_view" value="2" />
-                      <enum name="video_decoder_gl_surface_view" value="3" />
-                  </attr>
-                  <attr name="resize_mode" format="enum">
-                      <enum name="fit" value="0" />
-                      <enum name="fixed_width" value="1" />
-                      <enum name="fixed_height" value="2" />
-                      <enum name="fill" value="3" />
-                      <enum name="zoom" value="4" />
-                  </attr>
-                  <attr name="shutter_background_color" format="color" />
-                  <attr name="keep_content_on_player_reset" format="boolean" />
-                  <attr name="hide_during_ads" format="boolean" />
-                  <attr name="auto_show" format="boolean" />
-                  <attr name="show_timeout" format="integer" />
-                  <attr name="show_buffering" format="enum">
-                      <enum name="never" value="0" />
-                      <enum name="when_playing" value="1" />
-                      <enum name="always" value="2" />
-                  </attr>
-              </declare-styleable>
-
-              <!-- 通用属性（兼容其他自定义View） -->
-              <declare-styleable name="CustomAttributes">
-                  <attr name="use_controller" />
-                  <attr name="controller" />
-                  <attr name="player" />
-                  <attr name="surface_type" />
-                  <attr name="resize_mode" />
-              </declare-styleable>
+              <!-- ExoPlayer PlayerView 常用属性 -->
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+              <attr name="shutter_background_color" format="color" />
+              <attr name="keep_content_on_player_reset" format="boolean" />
+              <attr name="hide_during_ads" format="boolean" />
+              <attr name="auto_show" format="boolean" />
+              <attr name="show_timeout" format="integer" />
+              <attr name="show_buffering" format="enum">
+                  <enum name="never" value="0" />
+                  <enum name="when_playing" value="1" />
+                  <enum name="always" value="2" />
+              </attr>
           </resources>
           EOF
 
@@ -151,7 +140,7 @@ jobs:
           </manifest>
           EOF
 
-          # ------------------- 生成必要的 Gradle 构建脚本 -------------------
+          # ------------------- 生成 Gradle 构建脚本（添加 ExoPlayer 依赖） -------------------
           echo "=== Creating Gradle scripts with Kotlin support ==="
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
@@ -211,10 +200,6 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              // 如需 kotlinOptions，可取消注释
-              // kotlinOptions {
-              //     jvmTarget = '17'
-              // }
           }
 
           dependencies {
@@ -222,8 +207,10 @@ jobs:
               implementation 'com.google.android.material:material:1.9.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
               implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
-              // 如果使用了 ExoPlayer，请取消注释以下依赖
-              // implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+              // ExoPlayer 依赖（解决自定义属性定义）
+              implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+              // 如果还需要其他模块（如 UI），可添加：
+              // implementation 'com.google.android.exoplayer:exoplayer-ui:2.19.1'
           }
           EOF
 
@@ -251,11 +238,11 @@ jobs:
           # 将 build.log 复制到工作区根目录，以便上传
           cp build.log ../build.log
           
-          echo "=== Full build log (first 200 lines) ==="
-          head -n 200 build.log
-          echo "... (truncated) ..."
-          echo "=== Full build log (last 200 lines) ==="
-          tail -n 200 build.log
+          # 在控制台中直接打印错误关键信息（便于快速查看）
+          echo "=== Error summary (if any) ==="
+          grep -A 30 "FAILURE" build.log || echo "No FAILURE pattern found"
+          echo "=== Last 100 lines of build log ==="
+          tail -n 100 build.log
           
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "Gradle build failed with exit code $BUILD_STATUS"
