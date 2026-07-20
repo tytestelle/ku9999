@@ -1,7 +1,14 @@
 package com.ku9.player
 
-import okhttp3.*
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 object NetworkUtils {
     private val client = OkHttpClient()
@@ -18,9 +25,14 @@ object NetworkUtils {
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         if (!it.isSuccessful) {
-                            continuation.resumeWithException(IOException("Unexpected code $it"))
+                            continuation.resumeWithException(IOException("Unexpected code ${it.code()}"))
                         } else {
-                            continuation.resume(it.body?.string() ?: "")
+                            val body = it.body?.string()
+                            if (body != null) {
+                                continuation.resume(body)
+                            } else {
+                                continuation.resumeWithException(IOException("Response body is null"))
+                            }
                         }
                     }
                 }
