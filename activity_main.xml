@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:title="KU9 Player"
+        android:titleTextColor="@android:color/white" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <!-- 分组列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/groupList"
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:background="#f5f5f5"
+            android:scrollbars="vertical" />
+
+        <!-- 右侧内容 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- 播放器容器 -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="2"
+                android:background="#000000">
+
+                <com.google.android.exoplayer2.ui.PlayerView
+                    android:id="@+id/playerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:use_controller="true" />
+
+                <FrameLayout
+                    android:id="@+id/loadingOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#80000000"
+                    android:visibility="gone">
+
+                    <ProgressBar
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center" />
+
+                    <TextView
+                        android:id="@+id/loadingText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal|bottom"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:layout_marginBottom="80dp" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- 频道列表 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/channelList"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:scrollbars="vertical" />
+
+            <!-- 底部控制栏 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvChannelCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="共 0 个频道"
+                    android:textSize="12sp" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tvNowPlaying"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="未播放"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnPrev"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_media_previous"
+                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+
+                <ImageButton
+                    android:id="@+id/btnPlayPause"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_media_play"
+                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+
+                <ImageButton
+                    android:id="@+id/btnNext"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_media_next"
+                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+
+                <SeekBar
+                    android:id="@+id/seekBarVolume"
+                    android:layout_width="80dp"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="100" />
+
+                <ImageButton
+                    android:id="@+id/btnFullscreen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_menu_crop"
+                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+
+                <ImageButton
+                    android:id="@+id/btnImport"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_menu_upload"
+                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
