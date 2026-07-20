@@ -14,10 +14,7 @@ buildscript {
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
+    // 全部移除，仓库统一由 settings.gradle 管理
 }
 
 task clean(type: Delete) {
