@@ -23,168 +23,21 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Create minimal Android project
+      - name: Install Gradle 8.2
         run: |
-          # 删除旧的 android 目录
-          rm -rf android
-          mkdir -p android/app/src/main/java/com/ku9/player
-          mkdir -p android/app/src/main/res/layout
-          mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/mipmap-hdpi
-          mkdir -p android/app/src/main/res/mipmap-mdpi
-          mkdir -p android/app/src/main/res/mipmap-xhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-          # 创建 build.gradle（根）
-          cat > android/build.gradle << 'EOF'
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.0'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
-              }
-          }
-          EOF
-
-          # 创建 settings.gradle
-          cat > android/settings.gradle << 'EOF'
-          pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
-          }
-          rootProject.name = "KU9Player"
-          include ':app'
-          EOF
-
-          # 创建 app/build.gradle
-          cat > android/app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
-          android {
-              namespace 'com.ku9.player'
-              compileSdk 34
-              defaultConfig {
-                  applicationId 'com.ku9.player'
-                  minSdk 21
-                  targetSdk 34
-                  versionCode 1
-                  versionName '1.0.0'
-              }
-              buildTypes {
-                  release { minifyEnabled false }
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-          }
-          repositories {
-              google()
-              mavenCentral()
-          }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-          }
-          EOF
-
-          # 创建 MainActivity.kt
-          cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
-          package com.ku9.player
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-              }
-          }
-          EOF
-
-          # 创建 activity_main.xml
-          cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:gravity="center"
-              android:orientation="vertical">
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="KU9 Player"
-                  android:textSize="24sp" />
-          </LinearLayout>
-          EOF
-
-          # 创建资源文件
-          cat > android/app/src/main/res/values/colors.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="colorPrimary">#3F51B5</color>
-              <color name="colorPrimaryDark">#303F9F</color>
-              <color name="colorAccent">#FF4081</color>
-          </resources>
-          EOF
-          cat > android/app/src/main/res/values/strings.xml << 'EOF'
-          <resources>
-              <string name="app_name">KU9 Player</string>
-          </resources>
-          EOF
-          cat > android/app/src/main/res/values/themes.xml << 'EOF'
-          <resources>
-              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
-          </resources>
-          EOF
-
-          # 创建 AndroidManifest.xml
-          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.ku9.player">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
-                  android:label="@string/app_name"
-                  android:roundIcon="@mipmap/ic_launcher_round"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.KU9Player"
-                  android:usesCleartextTraffic="true">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          # 创建空的 ic_launcher 占位文件（避免资源缺失）
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
-
-          # 生成 gradle wrapper
-          cd android
-          gradle wrapper --gradle-version 8.2
-          chmod +x gradlew
-
-      - name: Build APK
+      - name: Build with Gradle 8.2
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          gradle clean assembleDebug --stacktrace --info --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
