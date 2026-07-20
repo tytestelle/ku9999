@@ -23,13 +23,13 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Prepare standard Android project
+      - name: Copy sources to standard location
         run: |
-          # 清理并重建标准目录
+          # 完全重建标准目录
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
-          mkdir -p android/app/src/main/java/com/ku9/player/{manager,utils,data,parser,player,ui}
+          mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/mipmap-hdpi
@@ -38,20 +38,22 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制所有 Kotlin 文件（从根目录及子目录）
-          find . -maxdepth 2 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
-          [ -d data ] && cp data/*.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
-          [ -d parser ] && cp parser/*.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
-          [ -d player ] && cp player/*.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true
-          [ -d ui ] && cp ui/*.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
-          [ -d utils ] && cp utils/*.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
+          # 复制所有 .kt 文件（包括子目录中的）
+          echo "=== Copying Kotlin files ==="
+          find . -name "*.kt" -exec cp --parents {} android/app/src/main/java/com/ku9/player/ \;
+          # 如果 find 不支持 --parents，用下面的循环替代
+          for f in $(find . -name "*.kt"); do
+            cp "$f" "android/app/src/main/java/com/ku9/player/"
+          done
 
           # 复制布局文件
+          echo "=== Copying layout files ==="
           [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
           [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
           [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
 
-          # 创建资源文件
+          # 创建资源文件（如果缺失）
+          echo "=== Creating resource files ==="
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -99,45 +101,42 @@ jobs:
           </manifest>
           EOF
 
-          # 创建空白的 ic_launcher 占位
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
+          # 创建空白的 ic_launcher
+          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
+          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
+          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
+          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
+          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          # 列出复制后的文件结构，用于调试
+          # 验证文件
           echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
           ls -la android/app/src/main/java/com/ku9/player/
-          echo "=== Files in android/app/src/main/res/layout/ ==="
-          ls -la android/app/src/main/res/layout/
-          echo "=== Files in android/app/src/main/res/values/ ==="
-          ls -la android/app/src/main/res/values/
-          echo "AndroidManifest.xml ==="
-          cat android/app/src/main/AndroidManifest.xml
+          echo "=== MainActivity.kt content (first 10 lines) ==="
+          head -n 10 android/app/src/main/java/com/ku9/player/MainActivity.kt || echo "MainActivity.kt not found!"
 
-      - name: Install Gradle 8.2 and build
+      - name: Build with Gradle 8.2
         id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          # 强制清理并构建
           gradle clean assembleDebug --stacktrace --info --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
-          # 输出最后 200 行日志
-          echo "=== Last 200 lines of build log ==="
-          tail -n 200 build.log
-          # 检查 APK 是否存在
+          echo "=== Build log (last 500 lines) ==="
+          tail -n 500 build.log
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Gradle build failed with exit code $BUILD_STATUS"
+            exit $BUILD_STATUS
+          fi
+          echo "=== Checking for APK ==="
           if [ ! -f app/build/outputs/apk/debug/*.apk ]; then
-            echo "APK not found! Listing build directory contents..."
+            echo "APK not found! Listing all files in app/build..."
             find app/build -type f 2>/dev/null || echo "No build directory"
-            echo "Build log tail (full) above."
+            echo "=== Full build log (above) contains the error ==="
             exit 1
           fi
-          # 如果 APK 存在，则打印路径
-          echo "APK found:"
+          echo "=== APK found! ==="
           ls -la app/build/outputs/apk/debug/
 
       - name: Upload APK
@@ -146,4 +145,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error  # 设置为 error，确保没有 APK 时失败
+          if-no-files-found: error
