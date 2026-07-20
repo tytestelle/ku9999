@@ -31,22 +31,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Prepare resources and fix Kotlin code
+      - name: Prepare resources and gradle.properties
         run: |
-          echo "🔧 准备资源和修复 Kotlin 代码..."
+          echo "🔧 准备资源文件..."
 
-          # 创建资源目录
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/menu
 
-          # ---------- 生成 themes.xml ----------
+          # 生成 themes.xml
           echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
           echo '<resources>' >> android/app/src/main/res/values/themes.xml
           echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
           echo '</resources>' >> android/app/src/main/res/values/themes.xml
 
-          # ---------- 生成 attrs.xml ----------
+          # 生成 attrs.xml
           echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
           echo '<resources>' >> android/app/src/main/res/values/attrs.xml
           echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
@@ -67,7 +66,7 @@ jobs:
           echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
           echo '</resources>' >> android/app/src/main/res/values/attrs.xml
 
-          # ---------- 生成 strings.xml ----------
+          # 生成 strings.xml（若不存在）
           if [ ! -f android/app/src/main/res/values/strings.xml ]; then
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/strings.xml
             echo '<resources>' >> android/app/src/main/res/values/strings.xml
@@ -75,7 +74,7 @@ jobs:
             echo '</resources>' >> android/app/src/main/res/values/strings.xml
           fi
 
-          # ---------- 生成 colors.xml ----------
+          # 生成 colors.xml（若不存在）
           if [ ! -f android/app/src/main/res/values/colors.xml ]; then
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/colors.xml
             echo '<resources>' >> android/app/src/main/res/values/colors.xml
@@ -85,7 +84,7 @@ jobs:
             echo '</resources>' >> android/app/src/main/res/values/colors.xml
           fi
 
-          # ---------- 生成 bottom_nav_menu.xml ----------
+          # 生成 bottom_nav_menu.xml（若不存在）
           if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
             mkdir -p android/app/src/main/res/menu
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/menu/bottom_nav_menu.xml
@@ -102,42 +101,19 @@ jobs:
             echo '</menu>' >> android/app/src/main/res/menu/bottom_nav_menu.xml
           fi
 
-          # ---------- 修复 AndroidManifest.xml ----------
+          # 修复 AndroidManifest.xml（移除图标引用）
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
             sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
           fi
 
-          # ---------- 生成 gradle.properties ----------
+          # 生成 gradle.properties
           echo "android.useAndroidX=true" > android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
 
-          # ---------- 修正 Kotlin 文件 ----------
-          # 1. ChannelAdapter.kt - 修正 ID 引用为 tvChannelName 和 ivLogo
-          CHANNEL_ADAPTER="android/app/src/main/java/com/ku9/player/ChannelAdapter.kt"
-          if [ -f "$CHANNEL_ADAPTER" ]; then
-            sed -i 's/tv_channel_name/tvChannelName/g' "$CHANNEL_ADAPTER"
-            sed -i 's/iv_channel_logo/ivLogo/g' "$CHANNEL_ADAPTER"
-          fi
-
-          # 2. EPGFragment.kt - 修正 getSourceManager 调用
-          EPG_FRAGMENT="android/app/src/main/java/com/ku9/player/EPGFragment.kt"
-          if [ -f "$EPG_FRAGMENT" ]; then
-            sed -i 's/(activity as MainActivity).getSourceManager()/((activity as? MainActivity)?.getSourceManager()) ?: return/g' "$EPG_FRAGMENT"
-          fi
-
-          # 3. MainActivity.kt - 确保有 getSourceManager() 方法
-          MAIN_ACT="android/app/src/main/java/com/ku9/player/MainActivity.kt"
-          if [ -f "$MAIN_ACT" ]; then
-            if ! grep -q "fun getSourceManager()" "$MAIN_ACT"; then
-              # 在类结束前插入
-              sed -i '/^}$/i \    fun getSourceManager(): SourceManager = sourceManager' "$MAIN_ACT"
-            fi
-          fi
-
-          echo "✅ 资源准备和代码修复完成"
+          echo "✅ 资源准备完成"
 
       - name: Build APK with Gradle
         id: build
