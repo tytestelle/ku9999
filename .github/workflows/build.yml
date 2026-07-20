@@ -31,159 +31,197 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Prepare project (copy Kotlin files and generate resources)
+      - name: Move Kotlin files to correct package and generate resources
         run: |
           set -e
-          echo "🚀 开始准备项目..."
+          echo "🚀 开始移动 Kotlin 文件到目标目录..."
 
           # 创建目标包目录
           mkdir -p android/app/src/main/java/com/ku9/player
 
-          # 复制所有 Kotlin 文件（包括子目录）
-          echo "📦 复制 Kotlin 文件到目标包..."
-          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
+          # 移动所有 .kt 文件（包括子目录）到目标包，覆盖同名文件
+          find . -name "*.kt" ! -path "./android/*" -exec mv -v {} android/app/src/main/java/com/ku9/player/ \;
 
-          # 列出目标目录内容
+          # 验证移动后的文件
           echo "📁 目标包中的 Kotlin 文件："
           ls -la android/app/src/main/java/com/ku9/player/
 
-          # 生成资源文件（使用 echo 避免 heredoc 问题）
+          # 生成所有必需的资源文件（如果不存在）
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/activity_main.xml
-          echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    xmlns:app="http://schemas.android.com/apk/res-auto"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:layout_height="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:orientation="vertical">' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    <FrameLayout' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:id="@+id/fragment_container"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_height="0dp"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_weight="1" />' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    <com.google.android.material.bottomnavigation.BottomNavigationView' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:id="@+id/bottom_navigation"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        app:menu="@menu/bottom_nav_menu" />' >> android/app/src/main/res/layout/activity_main.xml
-          echo '</LinearLayout>' >> android/app/src/main/res/layout/activity_main.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    android:layout_height="match_parent"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    android:orientation="vertical">' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    <Spinner' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:id="@+id/spinner_groups"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_height="wrap_content" />' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    <androidx.appcompat.widget.SearchView' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:id="@+id/search_view"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:queryHint="搜索频道" />' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '    <androidx.recyclerview.widget.RecyclerView' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:id="@+id/rv_channels"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '        android:layout_height="match_parent" />' >> android/app/src/main/res/layout/fragment_channel_list.xml
-          echo '</LinearLayout>' >> android/app/src/main/res/layout/fragment_channel_list.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/item_channel.xml
-          echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    android:padding="12dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    android:orientation="horizontal">' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    <ImageView' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:id="@+id/ivLogo"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_width="40dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_height="40dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:scaleType="centerCrop" />' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    <TextView' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:id="@+id/tvChannelName"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_width="0dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_weight="1"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_marginStart="12dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:textSize="16sp" />' >> android/app/src/main/res/layout/item_channel.xml
-          echo '    <ImageView' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:id="@+id/ivFavorite"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_width="24dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:layout_height="24dp"' >> android/app/src/main/res/layout/item_channel.xml
-          echo '        android:src="@android:drawable/star_off" />' >> android/app/src/main/res/layout/item_channel.xml
-          echo '</LinearLayout>' >> android/app/src/main/res/layout/item_channel.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/item_group.xml
-          echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/item_group.xml
-          echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/item_group.xml
-          echo '    android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_group.xml
-          echo '    android:padding="12dp">' >> android/app/src/main/res/layout/item_group.xml
-          echo '    <TextView' >> android/app/src/main/res/layout/item_group.xml
-          echo '        android:id="@+id/tvGroupName"' >> android/app/src/main/res/layout/item_group.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/item_group.xml
-          echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_group.xml
-          echo '        android:textSize="16sp" />' >> android/app/src/main/res/layout/item_group.xml
-          echo '</LinearLayout>' >> android/app/src/main/res/layout/item_group.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '<menu xmlns:android="http://schemas.android.com/apk/res/android">' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:id="@+id/nav_channels"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:icon="@android:drawable/ic_menu_view"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:title="频道" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:id="@+id/nav_epg"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:icon="@android:drawable/ic_menu_agenda"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:title="节目单" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:id="@+id/nav_settings"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:icon="@android:drawable/ic_menu_preferences"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '        android:title="设置" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          echo '</menu>' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
-          echo '<resources>' >> android/app/src/main/res/values/themes.xml
-          echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
-          echo '</resources>' >> android/app/src/main/res/values/themes.xml
-
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
-          echo '<resources>' >> android/app/src/main/res/values/attrs.xml
-          echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-          echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-          echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
-          echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
-          echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-          echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
-          echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
-          echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-          echo '</resources>' >> android/app/src/main/res/values/attrs.xml
-
-          # 如果 strings.xml 不存在则生成
-          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/strings.xml
-            echo '<resources>' >> android/app/src/main/res/values/strings.xml
-            echo '    <string name="app_name">KU9 Player</string>' >> android/app/src/main/res/values/strings.xml
-            echo '</resources>' >> android/app/src/main/res/values/strings.xml
+          # 生成 activity_main.xml
+          if [ ! -f android/app/src/main/res/layout/activity_main.xml ]; then
+            cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+              <FrameLayout
+                  android:id="@+id/fragment_container"
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1" />
+              <com.google.android.material.bottomnavigation.BottomNavigationView
+                  android:id="@+id/bottom_navigation"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  app:menu="@menu/bottom_nav_menu" />
+          </LinearLayout>
+          EOF
           fi
 
-          # 如果 colors.xml 不存在则生成
+          # 生成 fragment_channel_list.xml
+          if [ ! -f android/app/src/main/res/layout/fragment_channel_list.xml ]; then
+            cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+              <Spinner
+                  android:id="@+id/spinner_groups"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <androidx.appcompat.widget.SearchView
+                  android:id="@+id/search_view"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:queryHint="搜索频道" />
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/rv_channels"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+          </LinearLayout>
+          EOF
+          fi
+
+          # 生成 item_channel.xml
+          if [ ! -f android/app/src/main/res/layout/item_channel.xml ]; then
+            cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="12dp"
+              android:orientation="horizontal">
+              <ImageView
+                  android:id="@+id/ivLogo"
+                  android:layout_width="40dp"
+                  android:layout_height="40dp"
+                  android:scaleType="centerCrop" />
+              <TextView
+                  android:id="@+id/tvChannelName"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:layout_marginStart="12dp"
+                  android:textSize="16sp" />
+              <ImageView
+                  android:id="@+id/ivFavorite"
+                  android:layout_width="24dp"
+                  android:layout_height="24dp"
+                  android:src="@android:drawable/star_off" />
+          </LinearLayout>
+          EOF
+          fi
+
+          # 生成 item_group.xml
+          if [ ! -f android/app/src/main/res/layout/item_group.xml ]; then
+            cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="12dp">
+              <TextView
+                  android:id="@+id/tvGroupName"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:textSize="16sp" />
+          </LinearLayout>
+          EOF
+          fi
+
+          # 生成 bottom_nav_menu.xml
+          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
+            cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu xmlns:android="http://schemas.android.com/apk/res/android">
+              <item
+                  android:id="@+id/nav_channels"
+                  android:icon="@android:drawable/ic_menu_view"
+                  android:title="频道" />
+              <item
+                  android:id="@+id/nav_epg"
+                  android:icon="@android:drawable/ic_menu_agenda"
+                  android:title="节目单" />
+              <item
+                  android:id="@+id/nav_settings"
+                  android:icon="@android:drawable/ic_menu_preferences"
+                  android:title="设置" />
+          </menu>
+          EOF
+          fi
+
+          # 生成 themes.xml
+          if [ ! -f android/app/src/main/res/values/themes.xml ]; then
+            cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
+          fi
+
+          # 生成 attrs.xml
+          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
+            cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+          </resources>
+          EOF
+          fi
+
+          # 生成 strings.xml（如果缺失）
+          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
+            cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
+          fi
+
+          # 生成 colors.xml（如果缺失）
           if [ ! -f android/app/src/main/res/values/colors.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/colors.xml
-            echo '<resources>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorPrimary">#3F51B5</color>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorPrimaryDark">#303F9F</color>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorAccent">#FF4081</color>' >> android/app/src/main/res/values/colors.xml
-            echo '</resources>' >> android/app/src/main/res/values/colors.xml
+            cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
           fi
 
           # 修复 AndroidManifest.xml
@@ -199,7 +237,9 @@ jobs:
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
 
-          echo "✅ 项目准备完成。"
+          echo "✅ 文件移动和资源生成完成。"
+          echo "📁 验证目标目录："
+          ls -la android/app/src/main/java/com/ku9/player/
 
       - name: Build APK with Gradle
         id: build
