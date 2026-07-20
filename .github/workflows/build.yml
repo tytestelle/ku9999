@@ -31,96 +31,51 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Auto-fix Kotlin code and resources
+      - name: Prepare resources and fix Kotlin code
         run: |
-          echo "🔧 自动修复 Kotlin 代码和资源..."
+          echo "🔧 准备资源和修复 Kotlin 代码..."
 
-          # 1. 修正 ChannelAdapter.kt 中的 ID 引用
-          CHANNEL_ADAPTER="android/app/src/main/java/com/ku9/player/ChannelAdapter.kt"
-          if [ -f "$CHANNEL_ADAPTER" ]; then
-            sed -i 's/tvChannelName/tv_channel_name/g' "$CHANNEL_ADAPTER"
-            sed -i 's/ivLogo/iv_logo/g' "$CHANNEL_ADAPTER"
-            echo "✅ ChannelAdapter.kt 已修复"
-          fi
-
-          # 2. 为 MainActivity.kt 添加 getSourceManager() 方法
-          MAIN_ACTIVITY="android/app/src/main/java/com/ku9/player/MainActivity.kt"
-          if [ -f "$MAIN_ACTIVITY" ]; then
-            # 检查是否已有 getSourceManager 方法，如果没有则添加
-            if ! grep -q "fun getSourceManager" "$MAIN_ACTIVITY"; then
-              # 在 class 结束前插入方法（在最后一个 } 之前）
-              sed -i '/^}$/i\
-              fun getSourceManager(): SourceManager = sourceManager' "$MAIN_ACTIVITY"
-              echo "✅ MainActivity.kt 已添加 getSourceManager()"
-            fi
-          fi
-
-          # 3. 确保布局文件中的 ID 匹配（如果缺失则补全）
-          mkdir -p android/app/src/main/res/layout
-          if [ ! -f android/app/src/main/res/layout/item_channel.xml ]; then
-            cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:orientation="horizontal">
-                <ImageView
-                    android:id="@+id/iv_logo"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:scaleType="centerCrop" />
-                <TextView
-                    android:id="@+id/tv_channel_name"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="12dp"
-                    android:textSize="16sp" />
-                <ImageView
-                    android:id="@+id/iv_favorite"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/star_off" />
-            </LinearLayout>
-            EOF
-          fi
-
-          # 4. 补全其他必要资源（如 themes.xml, attrs.xml 等，如果缺失）
+          # 创建资源目录
           mkdir -p android/app/src/main/res/values
-          if [ ! -f android/app/src/main/res/values/themes.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
-            echo '<resources>' >> android/app/src/main/res/values/themes.xml
-            echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
-            echo '</resources>' >> android/app/src/main/res/values/themes.xml
-          fi
-          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
-            echo '<resources>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '</resources>' >> android/app/src/main/res/values/attrs.xml
-          fi
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/menu
+
+          # ---------- 生成 themes.xml ----------
+          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
+          echo '<resources>' >> android/app/src/main/res/values/themes.xml
+          echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
+          echo '</resources>' >> android/app/src/main/res/values/themes.xml
+
+          # ---------- 生成 attrs.xml ----------
+          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
+          echo '<resources>' >> android/app/src/main/res/values/attrs.xml
+          echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
+          echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
+          echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
+          echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
+          echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
+          echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
+          echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
+          echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
+          echo '</resources>' >> android/app/src/main/res/values/attrs.xml
+
+          # ---------- 生成 strings.xml ----------
           if [ ! -f android/app/src/main/res/values/strings.xml ]; then
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/strings.xml
             echo '<resources>' >> android/app/src/main/res/values/strings.xml
             echo '    <string name="app_name">KU9 Player</string>' >> android/app/src/main/res/values/strings.xml
             echo '</resources>' >> android/app/src/main/res/values/strings.xml
           fi
+
+          # ---------- 生成 colors.xml ----------
           if [ ! -f android/app/src/main/res/values/colors.xml ]; then
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/colors.xml
             echo '<resources>' >> android/app/src/main/res/values/colors.xml
@@ -130,19 +85,59 @@ jobs:
             echo '</resources>' >> android/app/src/main/res/values/colors.xml
           fi
 
-          # 5. 生成 gradle.properties（启用 AndroidX）
-          echo "android.useAndroidX=true" > android/gradle.properties
-          echo "android.enableJetifier=true" >> android/gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
+          # ---------- 生成 bottom_nav_menu.xml ----------
+          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
+            mkdir -p android/app/src/main/res/menu
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '<menu xmlns:android="http://schemas.android.com/apk/res/android">' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item android:id="@+id/nav_channels"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_view"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="频道" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item android:id="@+id/nav_epg"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_agenda"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="节目单" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item android:id="@+id/nav_settings"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_preferences"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="设置" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '</menu>' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+          fi
 
-          # 6. 修复 AndroidManifest.xml（移除图标引用）
+          # ---------- 修复 AndroidManifest.xml ----------
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
             sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
           fi
 
-          echo "✅ 自动修复完成"
+          # ---------- 生成 gradle.properties ----------
+          echo "android.useAndroidX=true" > android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
+
+          # ---------- 修正 Kotlin 文件 ----------
+          # 1. ChannelAdapter.kt - 修正 ID 引用为 tvChannelName 和 ivLogo
+          CHANNEL_ADAPTER="android/app/src/main/java/com/ku9/player/ChannelAdapter.kt"
+          if [ -f "$CHANNEL_ADAPTER" ]; then
+            sed -i 's/tv_channel_name/tvChannelName/g' "$CHANNEL_ADAPTER"
+            sed -i 's/iv_channel_logo/ivLogo/g' "$CHANNEL_ADAPTER"
+          fi
+
+          # 2. EPGFragment.kt - 修正 getSourceManager 调用
+          EPG_FRAGMENT="android/app/src/main/java/com/ku9/player/EPGFragment.kt"
+          if [ -f "$EPG_FRAGMENT" ]; then
+            sed -i 's/(activity as MainActivity).getSourceManager()/((activity as? MainActivity)?.getSourceManager()) ?: return/g' "$EPG_FRAGMENT"
+          fi
+
+          # 3. MainActivity.kt - 确保有 getSourceManager() 方法
+          MAIN_ACT="android/app/src/main/java/com/ku9/player/MainActivity.kt"
+          if [ -f "$MAIN_ACT" ]; then
+            if ! grep -q "fun getSourceManager()" "$MAIN_ACT"; then
+              # 在类结束前插入
+              sed -i '/^}$/i \    fun getSourceManager(): SourceManager = sourceManager' "$MAIN_ACT"
+            fi
+          fi
+
+          echo "✅ 资源准备和代码修复完成"
 
       - name: Build APK with Gradle
         id: build
