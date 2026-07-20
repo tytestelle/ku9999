@@ -31,43 +31,85 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Ensure resources and gradle.properties
+      - name: Prepare resources and gradle.properties
         run: |
-          # 确保 gradle.properties 存在并启用 AndroidX
-          if [ ! -f android/gradle.properties ]; then
-            echo "android.useAndroidX=true" > android/gradle.properties
-            echo "android.enableJetifier=true" >> android/gradle.properties
-            echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
+          echo "🔧 准备资源和 gradle.properties..."
+
+          # 创建必要的资源目录
+          mkdir -p android/app/src/main/res/values
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/menu
+
+          # 生成 themes.xml
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
+
+          # 生成 attrs.xml
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+          </resources>
+          EOF
+
+          # 生成 strings.xml（如果不存在）
+          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
+            cat > android/app/src/main/res/values/strings.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <resources>
+                <string name="app_name">KU9 Player</string>
+            </resources>
+            EOF
           fi
 
-          # 确保 themes.xml 和 attrs.xml 存在
-          mkdir -p android/app/src/main/res/values
-          if [ ! -f android/app/src/main/res/values/themes.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
-            echo '<resources>' >> android/app/src/main/res/values/themes.xml
-            echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
-            echo '</resources>' >> android/app/src/main/res/values/themes.xml
+          # 生成 colors.xml（如果不存在）
+          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
+            cat > android/app/src/main/res/values/colors.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <resources>
+                <color name="colorPrimary">#3F51B5</color>
+                <color name="colorPrimaryDark">#303F9F</color>
+                <color name="colorAccent">#FF4081</color>
+            </resources>
+            EOF
           fi
-          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
-            echo '<resources>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '</resources>' >> android/app/src/main/res/values/attrs.xml
+
+          # 生成 bottom_nav_menu.xml（如果不存在）
+          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
+            mkdir -p android/app/src/main/res/menu
+            cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <menu xmlns:android="http://schemas.android.com/apk/res/android">
+                <item android:id="@+id/nav_channels"
+                    android:icon="@android:drawable/ic_menu_view"
+                    android:title="频道" />
+                <item android:id="@+id/nav_epg"
+                    android:icon="@android:drawable/ic_menu_agenda"
+                    android:title="节目单" />
+                <item android:id="@+id/nav_settings"
+                    android:icon="@android:drawable/ic_menu_preferences"
+                    android:title="设置" />
+            </menu>
+            EOF
           fi
 
           # 修复 AndroidManifest.xml（移除图标引用）
@@ -76,6 +118,15 @@ jobs:
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
           fi
+
+          # 强制生成 gradle.properties（覆盖）
+          cat > android/gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
+          EOF
+
+          echo "✅ 资源准备完成"
 
       - name: Build APK with Gradle
         id: build
@@ -90,18 +141,18 @@ jobs:
           cp build.log ../build.log
 
           if [ $BUILD_STATUS -ne 0 ]; then
-            echo "❌ 构建失败，退出码: $BUILD_STATUS"
+            echo "❌ Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
 
-          echo "✅ 构建成功"
+          echo "✅ Build successful"
           cd ..
           mkdir -p apk_output
           find android -name "*.apk" -type f -exec cp {} apk_output/ \;
           APK_COUNT=$(ls -1 apk_output/*.apk 2>/dev/null | wc -l)
-          echo "📦 找到 $APK_COUNT 个 APK 文件"
+          echo "📦 Found $APK_COUNT APK file(s)"
           if [ $APK_COUNT -eq 0 ]; then
-            echo "❌ 没有生成 APK"
+            echo "❌ No APK generated"
             exit 1
           fi
           ls -la apk_output/
