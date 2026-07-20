@@ -23,7 +23,14 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      # 创建缺失的资源文件（根目录下的 res/values）
+      # 安装 Gradle 8.2 并设为默认
+      - name: Install Gradle 8.2
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
+
+      # 创建必需资源（根目录下 res/values）
       - name: Create resources
         run: |
           mkdir -p res/values
@@ -47,24 +54,14 @@ jobs:
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
-          echo "Resources created."
 
-      # 生成 Gradle Wrapper 8.2（强制使用）
-      - name: Generate wrapper
-        run: |
-          cd android
-          gradle wrapper --gradle-version 8.2
-          chmod +x gradlew
-          # 验证 wrapper 版本
-          ./gradlew --version
-
-      # 使用 wrapper 构建（不是系统 gradle）
+      # 使用 Gradle 8.2 构建
       - name: Build APK
         run: |
           cd android
-          ./gradlew clean assembleDebug --stacktrace --info --no-daemon
+          gradle clean assembleDebug --stacktrace --info --no-daemon
 
-      # 查找并上传 APK
+      # 上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
