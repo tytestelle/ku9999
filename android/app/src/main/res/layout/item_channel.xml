@@ -3,14 +3,21 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
-    android:background="?selectableItemBackground">
+    android:padding="16dp">
+
+    <ImageView
+        android:id="@+id/channel_logo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_launcher_foreground" />
 
     <TextView
         android:id="@+id/channel_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="16sp"
-        android:text="频道名" />
+        android:layout_marginStart="16dp"
+        android:textSize="18sp"
+        android:gravity="center_vertical" />
+
 </LinearLayout>
