@@ -23,20 +23,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 初始化 RecyclerView 等 UI 组件（假设布局中有）
-        val rvChannels = findViewById<RecyclerView>(R.id.rvChannels)
-        val rvGroups = findViewById<RecyclerView>(R.id.rvGroups)
+        // 假设布局中有两个 RecyclerView，ID 分别为 rv_channels 和 rv_groups
+        val rvChannels = findViewById<RecyclerView>(R.id.rv_channels)
+        val rvGroups = findViewById<RecyclerView>(R.id.rv_groups)
 
         channelAdapter = ChannelAdapter { channel ->
-            // 点击频道逻辑
             lifecycleScope.launch {
-                sourceManager.loadChannel(channel)
+                // 处理频道点击，例如加载播放
+                showToast("点击频道：${channel.name}")
             }
         }
         groupAdapter = GroupAdapter { group ->
-            // 点击分组逻辑
             lifecycleScope.launch {
-                sourceManager.loadGroup(group)
+                // 处理分组点击
+                showToast("点击分组：${group.name}")
             }
         }
 
@@ -48,11 +48,9 @@ class MainActivity : AppCompatActivity() {
         // 加载数据
         lifecycleScope.launch {
             sourceManager.loadData()
+            // 假设 sourceManager 有 channels 和 groups 公开属性
+            channelAdapter.setData(sourceManager.channels)
+            groupAdapter.setData(sourceManager.groups)
         }
-    }
-
-    // 示例：在其他地方调用 showToast
-    private fun onError(msg: String) {
-        showToast(msg)
     }
 }
