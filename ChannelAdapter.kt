@@ -6,10 +6,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class ChannelAdapter(
-    private val onItemClick: (Channel) -> Unit
-) : RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
-
+class ChannelAdapter(private val onItemClick: (Channel) -> Unit) :
+    RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
     private var items: List<Channel> = emptyList()
 
     fun setData(data: List<Channel>) {
@@ -18,8 +16,7 @@ class ChannelAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_channel, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
         return ViewHolder(view)
     }
 
