@@ -40,7 +40,6 @@ jobs:
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
-          # 不再创建 mipmap 目录，因为不需要图标
 
           # ------------------- 复制 Kotlin 源文件 -------------------
           echo "=== Copying Kotlin files ==="
@@ -84,11 +83,20 @@ jobs:
           </resources>
           EOF
 
-          # ------------------- 创建 AndroidManifest.xml（移除 icon 和 roundIcon） -------------------
+          # ------------------- 声明自定义属性 use_controller -------------------
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <declare-styleable name="PlayerView">
+                  <attr name="use_controller" format="boolean" />
+              </declare-styleable>
+          </resources>
+          EOF
+
+          # ------------------- 创建 AndroidManifest.xml（移除 package 属性） -------------------
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.ku9.player">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
