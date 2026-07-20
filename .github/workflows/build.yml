@@ -45,7 +45,7 @@ jobs:
           # 复制原始 .kt 文件（扁平化），作为基础
           find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
-          # ------------------- 1. 覆盖 MainActivity.kt -------------------
+          # 覆盖关键文件为修正版本
           cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
           package com.ku9.player
 
@@ -99,7 +99,6 @@ jobs:
           }
           EOF
 
-          # ------------------- 2. SourceManager.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/SourceManager.kt << 'EOF'
           package com.ku9.player
 
@@ -137,7 +136,6 @@ jobs:
           }
           EOF
 
-          # ------------------- 3. NetworkUtils.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/NetworkUtils.kt << 'EOF'
           package com.ku9.player
 
@@ -178,7 +176,6 @@ jobs:
           }
           EOF
 
-          # ------------------- 4. ChannelAdapter.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/ChannelAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -216,7 +213,6 @@ jobs:
           }
           EOF
 
-          # ------------------- 5. GroupAdapter.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/GroupAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -254,30 +250,27 @@ jobs:
           }
           EOF
 
-          # ------------------- 6. Channel.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/Channel.kt << 'EOF'
           package com.ku9.player
 
           data class Channel(val id: String = "", val name: String = "", val url: String = "")
           EOF
 
-          # ------------------- 7. Group.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/Group.kt << 'EOF'
           package com.ku9.player
 
           data class Group(val id: String = "", val name: String = "", val channels: List<Channel> = emptyList())
           EOF
 
-          # ------------------- 8. PlayerManager.kt (占位) -------------------
           cat > android/app/src/main/java/com/ku9/player/PlayerManager.kt << 'EOF'
           package com.ku9.player
 
           class PlayerManager {
-              // Empty placeholder to avoid errors
+              // placeholder
           }
           EOF
 
-          # ------------------- 布局文件（确保存在且包含正确ID） -------------------
+          # ------------------- 布局文件 -------------------
           cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -461,6 +454,8 @@ jobs:
               implementation 'com.squareup.okhttp3:okhttp:4.11.0'
               implementation 'com.google.code.gson:gson:2.10.1'
               implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+              // 添加 lifecycle 依赖，解决 lifecycleScope 问题
+              implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
           }
           EOF
 
@@ -481,6 +476,10 @@ jobs:
           echo "=== Starting build ==="
           gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
+          
+          # 打印完整日志（便于调试）
+          echo "=== Full build log ==="
+          cat build.log
           
           cp build.log ../build.log
           
