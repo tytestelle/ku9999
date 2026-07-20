@@ -83,12 +83,27 @@ jobs:
           </resources>
           EOF
 
-          # ------------------- 声明自定义属性 use_controller -------------------
+          # ------------------- 声明常用自定义属性（涵盖可能使用的） -------------------
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <declare-styleable name="PlayerView">
                   <attr name="use_controller" format="boolean" />
+                  <attr name="controller" format="boolean" />
+                  <attr name="player" format="reference" />
+                  <attr name="surface_type" format="enum">
+                      <enum name="surface_view" value="0" />
+                      <enum name="texture_view" value="1" />
+                      <enum name="spherical_view" value="2" />
+                      <enum name="video_decoder_gl_surface_view" value="3" />
+                  </attr>
+                  <attr name="resize_mode" format="enum">
+                      <enum name="fit" value="0" />
+                      <enum name="fixed_width" value="1" />
+                      <enum name="fixed_height" value="2" />
+                      <enum name="fill" value="3" />
+                      <enum name="zoom" value="4" />
+                  </attr>
               </declare-styleable>
           </resources>
           EOF
@@ -209,8 +224,14 @@ jobs:
           gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
           
-          echo "=== Full build log ==="
-          cat build.log
+          # 将 build.log 复制到工作区根目录，以便上传
+          cp build.log ../build.log
+          
+          echo "=== Full build log (first 200 lines) ==="
+          head -n 200 build.log
+          echo "... (truncated) ..."
+          echo "=== Full build log (last 200 lines) ==="
+          tail -n 200 build.log
           
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "Gradle build failed with exit code $BUILD_STATUS"
@@ -229,10 +250,17 @@ jobs:
             exit 1
           fi
 
-      - name: Upload APK
+      - name: Upload APK (if exists)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: app-debug
           path: android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn   # 改为 warn，以免因无 APK 导致整个工作流失败（日志会提前报错）
+
+      - name: Upload full build log (always)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
