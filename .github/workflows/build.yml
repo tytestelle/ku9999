@@ -23,109 +23,45 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Install Gradle 8.2
+      # 创建缺失的资源文件（如果根目录没有 res/values）
+      - name: Create missing resources
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
-          unzip -q gradle-8.2-bin.zip
-          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
-
-      - name: Copy files to standard Android structure
-        run: |
-          # 清理并重建目录
-          rm -rf android/app/src/main/java
-          rm -rf android/app/src/main/res
-          mkdir -p android/app/src/main/java/com/ku9/player
-          mkdir -p android/app/src/main/res/layout
-          mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/mipmap-hdpi
-          mkdir -p android/app/src/main/res/mipmap-mdpi
-          mkdir -p android/app/src/main/res/mipmap-xhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
-
-          # 复制所有 Kotlin 文件（包括子目录）
-          find . -maxdepth 2 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
-          # 如果有子目录，也复制
-          [ -d data ] && cp data/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-          [ -d parser ] && cp parser/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-          [ -d player ] && cp player/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-          [ -d ui ] && cp ui/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-          [ -d utils ] && cp utils/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-
-          # 复制布局文件
-          [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
-          [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
-          [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
-
-          # 创建资源文件
-          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          mkdir -p res/values
+          cat > res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="colorPrimary">#3F51B5</color>
               <color name="colorPrimaryDark">#303F9F</color>
               <color name="colorAccent">#FF4081</color>
-              <color name="black">#FF000000</color>
-              <color name="white">#FFFFFFFF</color>
           </resources>
           EOF
-          cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          cat > res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">KU9 Player</string>
           </resources>
           EOF
-          cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          cat > res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
 
-          # 复制 AndroidManifest.xml
-          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.ku9.player">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-              <application
-                  android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
-                  android:label="@string/app_name"
-                  android:roundIcon="@mipmap/ic_launcher_round"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.KU9Player"
-                  android:usesCleartextTraffic="true"
-                  android:requestLegacyExternalStorage="true">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:configChanges="orientation|screenSize">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+      # 生成 Gradle Wrapper（强制使用 8.2）
+      - name: Generate Gradle wrapper
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
 
-          # 创建占位图标
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\"><background android:drawable=\"@color/white\"/><foreground android:drawable=\"@color/colorPrimary\"/></adaptive-icon>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
-          cp android/app/src/main/res/mipmap-hdpi/ic_launcher.xml android/app/src/main/res/mipmap-mdpi/
-          cp android/app/src/main/res/mipmap-hdpi/ic_launcher.xml android/app/src/main/res/mipmap-xhdpi/
-          cp android/app/src/main/res/mipmap-hdpi/ic_launcher.xml android/app/src/main/res/mipmap-xxhdpi/
-          cp android/app/src/main/res/mipmap-hdpi/ic_launcher.xml android/app/src/main/res/mipmap-xxxhdpi/
-
-          echo "File copy completed."
-
+      # 构建（使用 wrapper）
       - name: Build APK
         run: |
           cd android
-          gradle clean assembleDebug --stacktrace --info --no-daemon
+          ./gradlew clean assembleDebug --stacktrace --info --no-daemon
 
+      # 搜索并上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
