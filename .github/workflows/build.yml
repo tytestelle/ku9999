@@ -29,7 +29,7 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Copy source and resource files
+      - name: Copy source and resource files to standard locations
         run: |
           mkdir -p android/app/src/main/java/com/ku9/player/manager
           mkdir -p android/app/src/main/java/com/ku9/player/utils
@@ -40,51 +40,31 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          cp MainActivity.kt android/app/src/main/java/com/ku9/player/
-          cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/ 2>/dev/null || true
-          cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
-          cp data/Channel.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
-          cp data/EpgProgram.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
-          cp parser/M3UParser.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
-          cp parser/TXTParser.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
-          cp parser/ParserManager.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
-          cp player/PlayerManager.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true
-          cp ui/ChannelAdapter.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
-          cp ui/GroupAdapter.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
-          cp utils/NetworkUtils.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
-          cp utils/Preferences.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
-          cp utils/ToastUtils.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
+          # 复制根目录下的 .kt 文件（包括子目录）
+          find . -name "*.kt" -not -path "./android/*" -exec cp --parents {} android/app/src/main/java/com/ku9/player/ \;
+          # 复制布局文件
+          cp activity_main.xml item_channel.xml item_group.xml android/app/src/main/res/layout/ 2>/dev/null || true
+          # 复制 values
+          cp -r values/* android/app/src/main/res/values/ 2>/dev/null || true
+          # 复制 AndroidManifest
+          cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml 2>/dev/null || true
 
-          cp activity_main.xml android/app/src/main/res/layout/
-          cp item_channel.xml android/app/src/main/res/layout/
-          cp item_group.xml android/app/src/main/res/layout/
-
-          if [ -d values ]; then
-            cp -r values/* android/app/src/main/res/values/
-          fi
-
-          cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-
-      - name: Verify file copy
-        run: |
-          echo "=== Checking MainActivity.kt ==="
-          ls -l android/app/src/main/java/com/ku9/player/MainActivity.kt || echo "Missing MainActivity!"
-          echo "=== Checking layout files ==="
-          ls -l android/app/src/main/res/layout/
-
-      - name: Build APK with full log
+      - name: Build APK
         run: |
           cd android
-          # 将输出重定向到文件，并同时打印到控制台
-          gradle assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
-          # 如果失败，打印整个日志（但 tee 已经打印了所有内容，所以这里只作为备选）
-          if [ $? -ne 0 ]; then
-            echo "Build failed. Printing full log:"
-            cat build.log
-            exit 1
-          fi
+          gradle assembleDebug --stacktrace --info --no-daemon
 
-      - name: Upload APK if exists
+      - name: List APK files
+        run: |
+          echo "=== Searching for APK files ==="
+          find android -name "*.apk" -type f
+          echo "=== Debug APK directory ==="
+          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
+          echo "=== Release APK directory ==="
+          ls -la android/app/build/outputs/apk/release/ || echo "Directory not found"
+        continue-on-error: true
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
