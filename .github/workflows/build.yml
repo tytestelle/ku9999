@@ -23,18 +23,47 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      # 安装 Gradle 8.2 并设为默认
       - name: Install Gradle 8.2
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      # 创建必需资源（根目录下 res/values）
-      - name: Create resources
+      - name: Prepare Android project (copy files to standard locations)
         run: |
-          mkdir -p res/values
-          cat > res/values/colors.xml << 'EOF'
+          # 清空并重新创建标准目录结构
+          rm -rf android/app/src/main
+          mkdir -p android/app/src/main/java/com/ku9/player/data
+          mkdir -p android/app/src/main/java/com/ku9/player/parser
+          mkdir -p android/app/src/main/java/com/ku9/player/player
+          mkdir -p android/app/src/main/java/com/ku9/player/ui
+          mkdir -p android/app/src/main/java/com/ku9/player/utils
+          mkdir -p android/app/src/main/java/com/ku9/player/manager
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/values
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+
+          # 复制根目录下的所有 .kt 文件到主包
+          find . -maxdepth 1 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          # 复制子目录 .kt 文件
+          if [ -d data ]; then cp data/*.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true; fi
+          if [ -d parser ]; then cp parser/*.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true; fi
+          if [ -d player ]; then cp player/*.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true; fi
+          if [ -d ui ]; then cp ui/*.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true; fi
+          if [ -d utils ]; then cp utils/*.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true; fi
+          if [ -d manager ]; then cp manager/*.kt android/app/src/main/java/com/ku9/player/manager/ 2>/dev/null || true; fi
+
+          # 复制布局文件
+          [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
+          [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
+          [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
+
+          # 创建资源文件
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="colorPrimary">#3F51B5</color>
@@ -42,26 +71,69 @@ jobs:
               <color name="colorAccent">#FF4081</color>
           </resources>
           EOF
-          cat > res/values/strings.xml << 'EOF'
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">KU9 Player</string>
           </resources>
           EOF
-          cat > res/values/themes.xml << 'EOF'
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
 
-      # 使用 Gradle 8.2 构建
+          # 创建 AndroidManifest.xml
+          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.ku9.player">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.KU9Player"
+                  android:usesCleartextTraffic="true">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # 创建空白图标占位
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher_round.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher_round.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.xml
+
       - name: Build APK
         run: |
           cd android
           gradle clean assembleDebug --stacktrace --info --no-daemon
 
-      # 上传 APK
+      - name: List build outputs
+        run: |
+          echo "=== Searching for APK ==="
+          find android -name "*.apk" -type f || echo "No APK found"
+          echo "=== Debug output directory ==="
+          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
+          echo "=== Build output directory tree ==="
+          find android/app/build -type d -name "outputs" -exec ls -la {} \;
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
