@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 
 class ChannelAdapter(
     private val onItemClick: (Channel) -> Unit,
@@ -27,21 +28,28 @@ class ChannelAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.tvName.text = item.name
+        // 加载台标
+        if (item.logoUrl.isNotEmpty()) {
+            Glide.with(holder.itemView.context)
+                .load(item.logoUrl)
+                .into(holder.ivLogo)
+        }
         holder.itemView.setOnClickListener { onItemClick(item) }
+        // 收藏状态
+        val isFav = SettingsManager.isFavorite(item.id)
+        holder.ivFavorite.setImageResource(
+            if (isFav) android.R.drawable.star_on else android.R.drawable.star_off
+        )
         holder.ivFavorite.setOnClickListener {
             onFavoriteClick?.invoke(item)
         }
-        // 根据收藏状态更新图标（需配合 SettingsManager）
-        holder.ivFavorite.setImageResource(
-            if (SettingsManager.isFavorite(item.id)) android.R.drawable.star_on
-            else android.R.drawable.star_off
-        )
     }
 
     override fun getItemCount() = items.size
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvName: TextView = view.findViewById(R.id.tv_channel_name)
+        val ivLogo: ImageView = view.findViewById(R.id.iv_logo)
         val ivFavorite: ImageView = view.findViewById(R.id.iv_favorite)
     }
 }
