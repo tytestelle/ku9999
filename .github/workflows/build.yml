@@ -29,9 +29,8 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Copy source and resource files to standard locations
+      - name: Copy source and resource files
         run: |
-          # 创建所有必要的目录（包括子目录）
           mkdir -p android/app/src/main/java/com/ku9/player/manager
           mkdir -p android/app/src/main/java/com/ku9/player/utils
           mkdir -p android/app/src/main/java/com/ku9/player/data
@@ -41,49 +40,51 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # 复制 Kotlin 源文件（如果存在）
-          [ -f MainActivity.kt ] && cp MainActivity.kt android/app/src/main/java/com/ku9/player/
-          [ -f SourceManager.kt ] && cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/
-          [ -f StorageManager.kt ] && cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f data/Channel.kt ] && cp data/Channel.kt android/app/src/main/java/com/ku9/player/data/
-          [ -f data/EpgProgram.kt ] && cp data/EpgProgram.kt android/app/src/main/java/com/ku9/player/data/
-          [ -f parser/M3UParser.kt ] && cp parser/M3UParser.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f parser/TXTParser.kt ] && cp parser/TXTParser.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f parser/ParserManager.kt ] && cp parser/ParserManager.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f player/PlayerManager.kt ] && cp player/PlayerManager.kt android/app/src/main/java/com/ku9/player/player/
-          [ -f ui/ChannelAdapter.kt ] && cp ui/ChannelAdapter.kt android/app/src/main/java/com/ku9/player/ui/
-          [ -f ui/GroupAdapter.kt ] && cp ui/GroupAdapter.kt android/app/src/main/java/com/ku9/player/ui/
-          [ -f utils/NetworkUtils.kt ] && cp utils/NetworkUtils.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f utils/Preferences.kt ] && cp utils/Preferences.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f utils/ToastUtils.kt ] && cp utils/ToastUtils.kt android/app/src/main/java/com/ku9/player/utils/
+          cp MainActivity.kt android/app/src/main/java/com/ku9/player/
+          cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/ 2>/dev/null || true
+          cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
+          cp data/Channel.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
+          cp data/EpgProgram.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
+          cp parser/M3UParser.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
+          cp parser/TXTParser.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
+          cp parser/ParserManager.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
+          cp player/PlayerManager.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true
+          cp ui/ChannelAdapter.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
+          cp ui/GroupAdapter.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
+          cp utils/NetworkUtils.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
+          cp utils/Preferences.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
+          cp utils/ToastUtils.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
 
-          # 复制布局文件
-          [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
-          [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
-          [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
+          cp activity_main.xml android/app/src/main/res/layout/
+          cp item_channel.xml android/app/src/main/res/layout/
+          cp item_group.xml android/app/src/main/res/layout/
 
-          # 复制 values 资源
           if [ -d values ]; then
             cp -r values/* android/app/src/main/res/values/
           fi
 
-          # 复制 AndroidManifest.xml
-          [ -f AndroidManifest.xml ] && cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
-          echo "File copy complete."
+      - name: Verify file copy
+        run: |
+          echo "=== Checking MainActivity.kt ==="
+          ls -l android/app/src/main/java/com/ku9/player/MainActivity.kt || echo "Missing MainActivity!"
+          echo "=== Checking layout files ==="
+          ls -l android/app/src/main/res/layout/
 
-      - name: Build APK
+      - name: Build APK with full log
         run: |
           cd android
-          gradle assembleDebug --stacktrace --info --no-daemon
+          # 将输出重定向到文件，并同时打印到控制台
+          gradle assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
+          # 如果失败，打印整个日志（但 tee 已经打印了所有内容，所以这里只作为备选）
+          if [ $? -ne 0 ]; then
+            echo "Build failed. Printing full log:"
+            cat build.log
+            exit 1
+          fi
 
-      - name: Find and upload APK
-        run: |
-          echo "=== Searching for APK files ==="
-          find android -name "*.apk" -type f
-        shell: bash
-
-      - name: Upload APK
+      - name: Upload APK if exists
         uses: actions/upload-artifact@v4
         if: always()
         with:
