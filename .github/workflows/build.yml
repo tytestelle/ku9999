@@ -109,7 +109,6 @@ jobs:
           echo "Project prepared."
 
       - name: Install Gradle 8.2 and build
-        id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
@@ -118,13 +117,10 @@ jobs:
           # 强制清理并构建，输出任务执行详情
           gradle clean assembleDebug --stacktrace --info --no-daemon --no-build-cache 2>&1 | tee build.log
           # 检查 APK 是否存在
-          if [ ! -f app/build/outputs/apk/debug/*.apk ]; then
-            echo "APK not found! Listing build directory contents..."
-            find app/build -type f 2>/dev/null || echo "No build directory"
-            echo "=== Build log last 300 lines ==="
-            tail -n 300 build.log
-            exit 1
-          fi
+          echo "=== Build directory contents ==="
+          find app/build -type f 2>/dev/null || echo "No build directory"
+          echo "=== APK search ==="
+          find app/build -name "*.apk" -type f || echo "No APK found"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -132,4 +128,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: fail  # 改为 fail，确保没有 APK 时构建失败
+          if-no-files-found: error  # 改为 error，确保没有 APK 时构建失败
