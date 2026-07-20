@@ -2,11 +2,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_channels"
-        android:icon="@android:drawable/ic_menu_view"
+        android:icon="@android:drawable/ic_menu_agenda"
         android:title="频道" />
     <item
         android:id="@+id/nav_epg"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@android:drawable/ic_menu_week"
         android:title="节目单" />
     <item
         android:id="@+id/nav_settings"
