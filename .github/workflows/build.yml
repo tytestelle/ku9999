@@ -40,11 +40,7 @@ jobs:
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/mipmap-hdpi
-          mkdir -p android/app/src/main/res/mipmap-mdpi
-          mkdir -p android/app/src/main/res/mipmap-xhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          # 不再创建 mipmap 目录，因为不需要图标
 
           # ------------------- 复制 Kotlin 源文件 -------------------
           echo "=== Copying Kotlin files ==="
@@ -88,7 +84,7 @@ jobs:
           </resources>
           EOF
 
-          # ------------------- 创建 AndroidManifest.xml -------------------
+          # ------------------- 创建 AndroidManifest.xml（移除 icon 和 roundIcon） -------------------
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -96,9 +92,7 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
                   android:label="@string/app_name"
-                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.KU9Player"
                   android:usesCleartextTraffic="true">
@@ -112,22 +106,13 @@ jobs:
           </manifest>
           EOF
 
-          # ------------------- 创建图标占位 -------------------
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
-          echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
-
-          # ------------------- 生成必要的 Gradle 构建脚本（修正 Kotlin 插件） -------------------
+          # ------------------- 生成必要的 Gradle 构建脚本 -------------------
           echo "=== Creating Gradle scripts with Kotlin support ==="
-          # 1) settings.gradle (位于 android/ 目录)
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
           include ':app'
           EOF
 
-          # 2) 根目录 build.gradle (位于 android/ 目录)
           cat > android/build.gradle << 'EOF'
           buildscript {
               repositories {
@@ -152,7 +137,6 @@ jobs:
           }
           EOF
 
-          # 3) app 模块 build.gradle (位于 android/app/)
           cat > android/app/build.gradle << 'EOF'
           apply plugin: 'com.android.application'
           apply plugin: 'kotlin-android'
@@ -182,7 +166,7 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              // 如果需要，可取消注释以下 kotlinOptions 块
+              // 如需 kotlinOptions，可取消注释
               // kotlinOptions {
               //     jvmTarget = '17'
               // }
@@ -196,7 +180,6 @@ jobs:
           }
           EOF
 
-          # 创建空的 proguard-rules.pro (避免报错)
           touch android/app/proguard-rules.pro
 
           # ------------------- 验证文件结构 -------------------
@@ -211,7 +194,6 @@ jobs:
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
           
-          # 打印项目结构（调试）
           echo "=== Available Gradle tasks ==="
           gradle tasks --no-daemon
           
@@ -227,7 +209,6 @@ jobs:
             exit $BUILD_STATUS
           fi
           
-          # 列出所有生成的 APK
           echo "=== Searching for generated APK files ==="
           APK_COUNT=$(find app/build -type f -name "*.apk" | wc -l)
           echo "Found $APK_COUNT APK(s):"
@@ -239,9 +220,6 @@ jobs:
             find app/build -type f 2>/dev/null || echo "build directory not found"
             exit 1
           fi
-          
-          # 记录 APK 路径（用于上传）
-          echo "apk_path=app/build/outputs/apk" >> $GITHUB_ENV
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
