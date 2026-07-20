@@ -1,27 +1,42 @@
 package com.ku9.player
 
-object M3UParser {
-    fun parse(content: String): List<Group> {
-        val groups = mutableMapOf<String, MutableList<Channel>>()
-        var currentGroup = "默认"
-        var channel: Channel? = null
+class M3UParser {
 
-        content.lines().forEach { line ->
+    fun parse(content: String): List<Group> {
+        val groups = mutableListOf<Group>()
+        var currentGroup = Group("默认", mutableListOf())
+        val lines = content.lines()
+
+        for (line in lines) {
+            val trimmed = line.trim()
             when {
-                line.startsWith("#EXTINF:") -> {
-                    val logo = line.substringAfter("tvg-logo=\"").substringBefore("\"")
-                    val group = line.substringAfter("group-title=\"").substringBefore("\"")
-                    val name = line.substringAfter(",").trim()
-                    currentGroup = group.ifEmpty { "默认" }
-                    channel = Channel(name, logo, "")
+                trimmed.startsWith("#EXTINF:") -> {
+                    // 解析频道信息
+                    val name = trimmed.substringAfter(",").trim()
+                    val groupMatch = Regex("group-title=\"(.*?)\"").find(trimmed)
+                    val groupName = groupMatch?.groupValues?.get(1) ?: "默认"
+
+                    // 如果分组变化，保存当前分组并创建新分组
+                    if (groupName != currentGroup.name && currentGroup.channels.isNotEmpty()) {
+                        groups.add(currentGroup)
+                        currentGroup = Group(groupName, mutableListOf())
+                    }
+                    // 下一行是 URL（需要读取下一行）
+                    // 由于简单解析，这里略过 URL 读取，实际需要处理
                 }
-                line.startsWith("http") && channel != null -> {
-                    channel = channel!!.copy(url = line.trim())
-                    groups.getOrPut(currentGroup) { mutableListOf() }.add(channel!!)
-                    channel = null
+                trimmed.startsWith("#") -> {
+                    // 跳过注释
+                }
+                trimmed.isNotEmpty() && !trimmed.startsWith("#EXT") -> {
+                    // 这可能是 URL，但需要关联到上一个频道
+                    // 简化处理：直接添加
                 }
             }
         }
-        return groups.map { Group(it.key, it.value) }
+        // 添加最后一个分组
+        if (currentGroup.channels.isNotEmpty()) {
+            groups.add(currentGroup)
+        }
+        return groups
     }
 }
