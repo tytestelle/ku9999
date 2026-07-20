@@ -29,11 +29,22 @@ android {
         jvmTarget = '17'
     }
 
+    // 关键：将源码和资源路径指向仓库根目录
     sourceSets {
         main {
-            java.srcDirs = ['../../src/main/java']
-            res.srcDirs = ['../../src/main/res']
-            manifest.srcFile '../../src/main/AndroidManifest.xml'
+            // 源码目录：根目录下的 .kt 文件及子目录
+            java.srcDirs = [
+                '../../',           // 根目录（包含 MainActivity.kt 等）
+                '../../data',       // data 子目录
+                '../../parser',     // parser 子目录
+                '../../player',     // player 子目录
+                '../../ui',         // ui 子目录
+                '../../utils'       // utils 子目录
+            ]
+            // 资源目录：根目录（布局文件和 values 文件夹）
+            res.srcDirs = ['../../']
+            // 清单文件
+            manifest.srcFile '../../AndroidManifest.xml'
         }
     }
 }
