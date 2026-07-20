@@ -31,27 +31,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Move all Kotlin files to correct package path
+      - name: Prepare project (copy Kotlin files and generate resources)
         run: |
-          echo "📦 开始复制所有 Kotlin 文件到目标包路径..."
-          TARGET_DIR="android/app/src/main/java/com/ku9/player"
-          mkdir -p "$TARGET_DIR"
-          
-          # 强制复制根目录及所有子目录中的 .kt 文件（排除 android 目录）
-          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} "$TARGET_DIR/" \;
-          
-          echo "✅ 复制完成。目标目录内容："
-          ls -la "$TARGET_DIR/"
-          echo "文件数量：$(ls -1 "$TARGET_DIR/" | wc -l)"
+          echo "🚀 开始准备项目..."
 
-      - name: Generate missing resources and fix manifest
-        run: |
-          # 创建目录
+          # 1. 创建目标包目录
+          mkdir -p android/app/src/main/java/com/ku9/player
+
+          # 2. 复制所有 Kotlin 文件（保留原始内容）
+          echo "📦 复制 Kotlin 文件（包括子目录）到目标包..."
+          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
+
+          # 列出目标目录内容以验证
+          echo "📁 目标包中的 Kotlin 文件："
+          ls -la android/app/src/main/java/com/ku9/player/
+
+          # 3. 生成所有资源文件（如果不存在则创建，若存在则覆盖以确保正确）
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # 写入布局文件（使用 cat 直接生成，不用 base64，避免编码问题）
+          # activity_main.xml
           cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -72,6 +72,7 @@ jobs:
           </LinearLayout>
           EOF
 
+          # fragment_channel_list.xml
           cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -94,6 +95,7 @@ jobs:
           </LinearLayout>
           EOF
 
+          # item_channel.xml
           cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -121,7 +123,22 @@ jobs:
           </LinearLayout>
           EOF
 
-          # 菜单
+          # item_group.xml
+          cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="12dp">
+              <TextView
+                  android:id="@+id/tvGroupName"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:textSize="16sp" />
+          </LinearLayout>
+          EOF
+
+          # bottom_nav_menu.xml
           cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -140,7 +157,7 @@ jobs:
           </menu>
           EOF
 
-          # values 资源
+          # themes.xml
           cat > android/app/src/main/res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -148,6 +165,7 @@ jobs:
           </resources>
           EOF
 
+          # attrs.xml
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -170,23 +188,29 @@ jobs:
           </resources>
           EOF
 
-          cat > android/app/src/main/res/values/strings.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">KU9 Player</string>
-          </resources>
-          EOF
+          # strings.xml (若不存在则创建)
+          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
+            cat > android/app/src/main/res/values/strings.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <resources>
+                <string name="app_name">KU9 Player</string>
+            </resources>
+            EOF
+          fi
 
-          cat > android/app/src/main/res/values/colors.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="colorPrimary">#3F51B5</color>
-              <color name="colorPrimaryDark">#303F9F</color>
-              <color name="colorAccent">#FF4081</color>
-          </resources>
-          EOF
+          # colors.xml (若不存在则创建)
+          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
+            cat > android/app/src/main/res/values/colors.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <resources>
+                <color name="colorPrimary">#3F51B5</color>
+                <color name="colorPrimaryDark">#303F9F</color>
+                <color name="colorAccent">#FF4081</color>
+            </resources>
+            EOF
+          fi
 
-          # 修复 AndroidManifest.xml（移除图标引用）
+          # 4. 修复 AndroidManifest.xml（移除图标引用）
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
@@ -194,14 +218,14 @@ jobs:
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
 
-          # gradle.properties
+          # 5. 生成 gradle.properties（启用 AndroidX）
           cat > android/gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          echo "✅ 所有资源文件生成完毕。"
+          echo "✅ 项目准备完成。"
 
       - name: Build APK with Gradle
         id: build
