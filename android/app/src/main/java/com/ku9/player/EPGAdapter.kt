@@ -1,36 +1,36 @@
 package com.ku9.player
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.ku9.player.databinding.ItemEpgBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
-class EPGAdapter(private val programs: List<EPGProgram>) :
-    RecyclerView.Adapter<EPGAdapter.ViewHolder>() {
+class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 
-    private val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private var items: List<EpgProgram> = emptyList()
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    fun submitList(list: List<EpgProgram>) {
+        items = list
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_epg, parent, false)
-        return ViewHolder(view)
+        val binding = ItemEpgBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val program = programs[position]
-        holder.tvTitle.text = program.title
-        holder.tvTime.text = "${dateFormat.format(program.startTime)} - ${dateFormat.format(program.endTime)}"
-        holder.tvDesc.text = program.desc
+        val program = items[position]
+        holder.binding.epgTitle.text = program.title
+        val startStr = timeFormat.format(Date(program.startTime))
+        val endStr = timeFormat.format(Date(program.endTime))
+        holder.binding.epgTime.text = "$startStr - $endStr"
     }
 
-    override fun getItemCount() = programs.size
+    override fun getItemCount() = items.size
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvTitle: TextView = view.findViewById(R.id.tv_epg_title)
-        val tvTime: TextView = view.findViewById(R.id.tv_epg_time)
-        val tvDesc: TextView = view.findViewById(R.id.tv_epg_desc)
-    }
+    class ViewHolder(val binding: ItemEpgBinding) : RecyclerView.ViewHolder(binding.root)
 }
