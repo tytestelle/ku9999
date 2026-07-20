@@ -30,7 +30,7 @@ android {
     }
 }
 
-// ========== 关键添加：声明仓库 ==========
+// 仓库声明必须在 android 块外面，dependencies 之前
 repositories {
     google()
     mavenCentral()
