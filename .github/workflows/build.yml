@@ -23,16 +23,31 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Install Gradle 8.2
+      - name: Install Gradle
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Build APK
+      # 检查文件结构，帮助调试
+      - name: List project structure
+        run: |
+          echo "=== Root directory ==="
+          ls -la
+          echo "=== android/app/src/main/java/com/ku9/player ==="
+          ls -la android/app/src/main/java/com/ku9/player || echo "Directory not found"
+          echo "=== android/app/src/main/res/layout ==="
+          ls -la android/app/src/main/res/layout || echo "Directory not found"
+
+      - name: Build with full debug logs
         run: |
           cd android
-          gradle assembleDebug --stacktrace --info --no-daemon
+          gradle assembleDebug --stacktrace --debug --no-daemon 2>&1 | tee build.log
+          if [ $? -ne 0 ]; then
+            echo "=== Last 500 lines of build.log ==="
+            tail -n 500 build.log
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
