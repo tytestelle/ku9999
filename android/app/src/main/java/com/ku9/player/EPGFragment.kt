@@ -24,8 +24,7 @@ class EPGFragment : Fragment() {
     private lateinit var adapter: EpgAdapter
 
     private val epgManager = EPGManager()
-    private var currentOffset = 0 // 0=今天
-    private var currentChannelId = "channel123" // 应从当前播放频道获取
+    private var currentOffset = 0
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_epg, container, false)
@@ -43,7 +42,6 @@ class EPGFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = adapter
 
-        // 加载今天EPG
         loadEPG(currentOffset)
 
         prevDayBtn.setOnClickListener {
@@ -57,16 +55,15 @@ class EPGFragment : Fragment() {
     }
 
     private fun loadEPG(offset: Int) {
-        // 更新日期显示
         val calendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset) }
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
         dateTextView.text = dateStr
 
         CoroutineScope(Dispatchers.Main).launch {
-            // 从设置中获取EPG URL
-            val epgUrl = SettingsManager.getEpgUrl() // 假设有此方法
+            val epgUrl = SettingsManager.getEpgUrl()
             if (epgUrl.isNotEmpty()) {
-                val programs = epgManager.loadEPG(epgUrl, currentChannelId, offset)
+                // 示例channelId，实际应从当前播放频道获取
+                val programs = epgManager.loadEPG(epgUrl, "channel123", offset)
                 adapter.submitList(programs)
             }
         }
