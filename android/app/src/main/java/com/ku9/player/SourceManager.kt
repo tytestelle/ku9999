@@ -13,9 +13,9 @@ class SourceManager(private val context: Context) {
         enum class SourceType { M3U, TXT }
     }
 
-    private val sources = mutableListOf<Source>()
+    private val sources = mutableListOf<Source>() // 添加泛型 <Source>
     private var currentSourceIndex = 0
-    private var currentGroups: List<Group> = emptyList()
+    private var currentGroups: List<Group> = emptyList() // 添加泛型 <Group>
 
     suspend fun addSource(name: String, url: String, type: Source.SourceType): Boolean {
         return try {
@@ -26,7 +26,7 @@ class SourceManager(private val context: Context) {
         }
     }
 
-    suspend fun loadSource(index: Int): List<Group> {
+    suspend fun loadSource(index: Int): List<Group> { // 添加泛型 <Group>
         if (index !in sources.indices) return emptyList()
         currentSourceIndex = index
         val source = sources[index]
@@ -40,7 +40,7 @@ class SourceManager(private val context: Context) {
                 val content = inputStream.bufferedReader().readText()
                 inputStream.close()
                 currentGroups = when (source.type) {
-                    Source.SourceType.M3U -> M3UParser.parse(content)
+                    Source.SourceType.M3U -> M3UParser().parse(content)
                     Source.SourceType.TXT -> parseTXT(content)
                 }
                 currentGroups
@@ -51,24 +51,27 @@ class SourceManager(private val context: Context) {
         }
     }
 
-    suspend fun switchToNextSource(): List<Group>? {
+    suspend fun switchToNextSource(): List<Group>? { // 添加泛型 <Group>
         if (sources.isEmpty()) return null
         val nextIndex = (currentSourceIndex + 1) % sources.size
         return loadSource(nextIndex)
     }
 
-    fun getCurrentGroups(): List<Group> = currentGroups
-    fun getSources(): List<Source> = sources
+    fun getCurrentGroups(): List<Group> = currentGroups // 添加泛型 <Group>
+
+    fun getSources(): List<Source> = sources // 添加泛型 <Source>
+
     fun getCurrentSourceIndex(): Int = currentSourceIndex
 
-    private fun parseTXT(content: String): List<Group> {
+    private fun parseTXT(content: String): List<Group> { // 添加泛型 <Group>
         val channels = content.lines()
             .mapNotNull { line ->
                 val trimmed = line.trim()
                 if (trimmed.isEmpty() || trimmed.startsWith("#")) return@mapNotNull null
                 val parts = trimmed.split(",", limit = 2)
                 if (parts.size >= 2) {
-                    Channel(name = parts[0].trim(), url = parts[1].trim(), logo = "")
+                    // 移除不存在的 logo 参数
+                    Channel(name = parts[0].trim(), url = parts[1].trim())
                 } else null
             }
         return listOf(Group("默认", channels))
