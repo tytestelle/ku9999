@@ -29,72 +29,73 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Prepare Android project files
+      - name: Prepare Android project files (complete)
         run: |
-          # 创建所有必要目录
+          # 清理并重新创建完整的 Android 项目结构
+          rm -rf android/app/src/main/java
+          rm -rf android/app/src/main/res
+          
           mkdir -p android/app/src/main/java/com/ku9/player/{manager,utils,data,parser,player,ui}
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制 Kotlin 文件（如果存在）
-          [ -f MainActivity.kt ] && cp MainActivity.kt android/app/src/main/java/com/ku9/player/
-          [ -f SourceManager.kt ] && cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/
-          [ -f StorageManager.kt ] && cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f data/Channel.kt ] && cp data/Channel.kt android/app/src/main/java/com/ku9/player/data/
-          [ -f data/EpgProgram.kt ] && cp data/EpgProgram.kt android/app/src/main/java/com/ku9/player/data/
-          [ -f parser/M3UParser.kt ] && cp parser/M3UParser.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f parser/TXTParser.kt ] && cp parser/TXTParser.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f parser/ParserManager.kt ] && cp parser/ParserManager.kt android/app/src/main/java/com/ku9/player/parser/
-          [ -f player/PlayerManager.kt ] && cp player/PlayerManager.kt android/app/src/main/java/com/ku9/player/player/
-          [ -f ui/ChannelAdapter.kt ] && cp ui/ChannelAdapter.kt android/app/src/main/java/com/ku9/player/ui/
-          [ -f ui/GroupAdapter.kt ] && cp ui/GroupAdapter.kt android/app/src/main/java/com/ku9/player/ui/
-          [ -f utils/NetworkUtils.kt ] && cp utils/NetworkUtils.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f utils/Preferences.kt ] && cp utils/Preferences.kt android/app/src/main/java/com/ku9/player/utils/
-          [ -f utils/ToastUtils.kt ] && cp utils/ToastUtils.kt android/app/src/main/java/com/ku9/player/utils/
+          # 复制所有 Kotlin 文件
+          echo "=== Copying Kotlin files ==="
+          find . -maxdepth 2 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          # 复制子目录中的 .kt 文件
+          [ -d data ] && cp data/*.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
+          [ -d parser ] && cp parser/*.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
+          [ -d player ] && cp player/*.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true
+          [ -d ui ] && cp ui/*.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
+          [ -d utils ] && cp utils/*.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
 
           # 复制布局文件
+          echo "=== Copying layout files ==="
           [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
           [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
           [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
 
-          # 复制 values 资源
-          if [ -d values ]; then
-            cp -r values/* android/app/src/main/res/values/
-          else
-            # 如果根目录没有 values 文件夹，创建默认资源文件
-            mkdir -p android/app/src/main/res/values
-            cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          # 创建资源文件（如果缺失）
+          echo "=== Creating resource files ==="
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="colorPrimary">#3F51B5</color>
               <color name="colorPrimaryDark">#303F9F</color>
               <color name="colorAccent">#FF4081</color>
+              <color name="black">#FF000000</color>
+              <color name="white">#FFFFFFFF</color>
           </resources>
           EOF
-            cat > android/app/src/main/res/values/strings.xml << 'EOF'
+
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">KU9 Player</string>
           </resources>
           EOF
-            cat > android/app/src/main/res/values/themes.xml << 'EOF'
+
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
-          fi
 
-          # 复制 AndroidManifest.xml（如果根目录有）
-          if [ -f AndroidManifest.xml ]; then
-            cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          else
-            # 如果根目录没有，使用默认清单
-            cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          # 创建 AndroidManifest.xml
+          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.ku9.player">
               <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -102,8 +103,12 @@ jobs:
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.KU9Player"
-                  android:usesCleartextTraffic="true">
-                  <activity android:name=".MainActivity" android:exported="true">
+                  android:usesCleartextTraffic="true"
+                  android:requestLegacyExternalStorage="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -112,29 +117,47 @@ jobs:
               </application>
           </manifest>
           EOF
-          fi
+
+          # 创建空白的 ic_launcher 占位文件（避免资源缺失错误）
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
           echo "File preparation complete."
+          echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
+          ls -la android/app/src/main/java/com/ku9/player/
 
-      - name: Build with full logs
+      - name: Build APK
         run: |
           cd android
-          gradle assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
-          if [ $? -ne 0 ]; then
-            echo "=== Build failed, showing last 300 lines of log ==="
-            tail -n 300 build.log
-            exit 1
+          gradle clean assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
+          BUILD_STATUS=$?
+          echo "=== Last 200 lines of build log ==="
+          tail -n 200 build.log
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_STATUS"
+            exit $BUILD_STATUS
           fi
 
-      - name: Find APK
+      - name: List build outputs
         run: |
-          echo "=== Searching for APK files ==="
-          find android -name "*.apk" -type f || echo "No APK found."
+          echo "=== APK search results ==="
+          find android -name "*.apk" -type f || echo "No APK found"
+          echo "=== Debug APK directory ==="
+          ls -la android/app/build/outputs/apk/debug/ || echo "Debug directory not found"
+          echo "=== Release APK directory ==="
+          ls -la android/app/build/outputs/apk/release/ || echo "Release directory not found"
+          echo "=== Full output directory structure ==="
+          find android/app/build -type d -name "apk" -exec ls -la {} \;
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: app-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/*.apk
           if-no-files-found: warn
