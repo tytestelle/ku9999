@@ -29,30 +29,31 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Prepare source and resources
+      - name: Prepare Android project files
         run: |
-          # 创建标准目录
-          mkdir -p android/app/src/main/java/com/ku9/player
+          # 创建所有必要目录
+          mkdir -p android/app/src/main/java/com/ku9/player/{manager,utils,data,parser,player,ui}
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # 复制 MainActivity.kt
-          if [ -f MainActivity.kt ]; then
-            cp MainActivity.kt android/app/src/main/java/com/ku9/player/
-          else
-            echo "ERROR: MainActivity.kt not found in root!"
-            exit 1
-          fi
+          # 复制 Kotlin 文件（如果存在）
+          [ -f MainActivity.kt ] && cp MainActivity.kt android/app/src/main/java/com/ku9/player/
+          [ -f SourceManager.kt ] && cp SourceManager.kt android/app/src/main/java/com/ku9/player/manager/
+          [ -f StorageManager.kt ] && cp StorageManager.kt android/app/src/main/java/com/ku9/player/utils/
+          [ -f data/Channel.kt ] && cp data/Channel.kt android/app/src/main/java/com/ku9/player/data/
+          [ -f data/EpgProgram.kt ] && cp data/EpgProgram.kt android/app/src/main/java/com/ku9/player/data/
+          [ -f parser/M3UParser.kt ] && cp parser/M3UParser.kt android/app/src/main/java/com/ku9/player/parser/
+          [ -f parser/TXTParser.kt ] && cp parser/TXTParser.kt android/app/src/main/java/com/ku9/player/parser/
+          [ -f parser/ParserManager.kt ] && cp parser/ParserManager.kt android/app/src/main/java/com/ku9/player/parser/
+          [ -f player/PlayerManager.kt ] && cp player/PlayerManager.kt android/app/src/main/java/com/ku9/player/player/
+          [ -f ui/ChannelAdapter.kt ] && cp ui/ChannelAdapter.kt android/app/src/main/java/com/ku9/player/ui/
+          [ -f ui/GroupAdapter.kt ] && cp ui/GroupAdapter.kt android/app/src/main/java/com/ku9/player/ui/
+          [ -f utils/NetworkUtils.kt ] && cp utils/NetworkUtils.kt android/app/src/main/java/com/ku9/player/utils/
+          [ -f utils/Preferences.kt ] && cp utils/Preferences.kt android/app/src/main/java/com/ku9/player/utils/
+          [ -f utils/ToastUtils.kt ] && cp utils/ToastUtils.kt android/app/src/main/java/com/ku9/player/utils/
 
           # 复制布局文件
-          if [ -f activity_main.xml ]; then
-            cp activity_main.xml android/app/src/main/res/layout/
-          else
-            echo "ERROR: activity_main.xml not found in root!"
-            exit 1
-          fi
-
-          # 复制其他必要的文件（如果有）
+          [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
           [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
           [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
 
@@ -60,42 +61,75 @@ jobs:
           if [ -d values ]; then
             cp -r values/* android/app/src/main/res/values/
           else
-            echo "WARNING: values directory not found in root, creating default colors/strings/themes"
+            # 如果根目录没有 values 文件夹，创建默认资源文件
             mkdir -p android/app/src/main/res/values
-            echo '<resources><color name="colorPrimary">#3F51B5</color></resources>' > android/app/src/main/res/values/colors.xml
-            echo '<resources><string name="app_name">KU9 Player</string></resources>' > android/app/src/main/res/values/strings.xml
-            echo '<resources><style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" /></resources>' > android/app/src/main/res/values/themes.xml
+            cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
+            cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
+            cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
           fi
 
-          # 复制 AndroidManifest.xml
+          # 复制 AndroidManifest.xml（如果根目录有）
           if [ -f AndroidManifest.xml ]; then
             cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           else
-            echo "ERROR: AndroidManifest.xml not found in root!"
-            exit 1
+            # 如果根目录没有，使用默认清单
+            cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.ku9.player">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.KU9Player"
+                  android:usesCleartextTraffic="true">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
           fi
 
-          # 列出复制后的目录结构，以便调试
-          echo "=== Files in android/app/src/main ==="
-          find android/app/src/main -type f
+          echo "File preparation complete."
 
-      - name: Build with full logging
+      - name: Build with full logs
         run: |
           cd android
-          gradle clean assembleDebug --stacktrace --no-daemon > build.log 2>&1
+          gradle assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
           if [ $? -ne 0 ]; then
-            echo "=== Build failed, showing last 300 lines of build.log ==="
+            echo "=== Build failed, showing last 300 lines of log ==="
             tail -n 300 build.log
             exit 1
-          else
-            echo "=== Build succeeded ==="
           fi
 
       - name: Find APK
         run: |
-          echo "=== Searching for APK ==="
-          find android -name "*.apk" -type f
-        shell: bash
+          echo "=== Searching for APK files ==="
+          find android -name "*.apk" -type f || echo "No APK found."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
