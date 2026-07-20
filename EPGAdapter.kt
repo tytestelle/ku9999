@@ -23,7 +23,7 @@ class EPGAdapter(private val programs: List<EPGProgram>) :
         val program = programs[position]
         holder.tvTitle.text = program.title
         holder.tvTime.text = "${dateFormat.format(program.startTime)} - ${dateFormat.format(program.endTime)}"
-        holder.tvDesc.text = program.description
+        holder.tvDesc.text = program.desc
     }
 
     override fun getItemCount() = programs.size
