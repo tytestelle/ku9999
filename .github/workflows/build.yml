@@ -33,8 +33,8 @@ jobs:
 
       - name: Prepare resources and fix manifest
         run: |
+          # 确保 attrs.xml 存在（避免属性引用错误）
           mkdir -p android/app/src/main/res/values
-          # 创建 attrs.xml（避免属性引用错误）
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -54,38 +54,58 @@ jobs:
                   <enum name="fill" value="3" />
                   <enum name="zoom" value="4" />
               </attr>
+              <attr name="shutter_background_color" format="color" />
+              <attr name="keep_content_on_player_reset" format="boolean" />
+              <attr name="hide_during_ads" format="boolean" />
+              <attr name="auto_show" format="boolean" />
+              <attr name="show_timeout" format="integer" />
+              <attr name="show_buffering" format="enum">
+                  <enum name="never" value="0" />
+                  <enum name="when_playing" value="1" />
+                  <enum name="always" value="2" />
+              </attr>
           </resources>
           EOF
-          
-          # 修复 AndroidManifest.xml（移除图标引用）
-          if [ -f android/app/src/main/AndroidManifest.xml ]; then
-            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
-            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
-            sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
+
+          # 修复 AndroidManifest.xml（移除图标引用和 package 属性）
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
+            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' "$MANIFEST"
+            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
 
-      - name: Build APK
+      - name: Build APK with Gradle
         id: build
         run: |
+          # 下载并配置 Gradle 8.2
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
+
           cd android
           gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
           cp build.log ../build.log
+
           if [ $BUILD_STATUS -ne 0 ]; then
-            echo "Build failed"
+            echo "❌ Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
-          
-          # 查找所有 APK 文件
-          echo "=== Finding APK files ==="
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found"
-          # 复制 APK 到统一位置（便于上传）
-          mkdir -p ../apk_output
-          find . -name "*.apk" -type f -exec cp {} ../apk_output/ \;
-          ls -la ../apk_output/
+
+          echo "✅ Build successful"
+
+          # 查找所有生成的 APK 文件（无论路径）
+          cd ..
+          mkdir -p apk_output
+          find android -name "*.apk" -type f -exec cp {} apk_output/ \;
+          APK_COUNT=$(ls -1 apk_output/*.apk 2>/dev/null | wc -l)
+          echo "📦 Found $APK_COUNT APK file(s)"
+          if [ $APK_COUNT -eq 0 ]; then
+            echo "❌ No APK generated"
+            exit 1
+          fi
+          ls -la apk_output/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
