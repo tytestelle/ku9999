@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 最终完整修复（修正 PlayerManager Builder 用法）
+# fix_build.sh - 最终修正（简化 PlayerManager，移除问题 API）
 set -e
 
 echo "=========================================="
-echo "  🔧 执行最终修复（修正 PlayerManager）"
+echo "  🔧 执行最终修正（简化 PlayerManager）"
 echo "=========================================="
 
 # ---------- 1. 修复 app/build.gradle ----------
@@ -40,85 +40,9 @@ sed -i '/com.google.android.exoplayer:exoplayer/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-hls/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-ui/d' "$APP_GRADLE"
 
-# ---------- 2. 删除重复的 EPGAdapter ----------
-rm -f android/app/src/main/java/com/ku9/player/EPGAdapter.kt
-
-# ---------- 3. 重写所有问题文件 ----------
+# ---------- 2. 修正 PlayerManager.kt（简化版） ----------
 SRC_DIR="android/app/src/main/java/com/ku9/player"
 
-# 3.1 Channel.kt
-cat > "$SRC_DIR/Channel.kt" << 'EOF'
-package com.ku9.player
-
-data class Channel(
-    val id: String = "",
-    val name: String = "",
-    val url: String = "",
-    val backupUrls: List<String> = emptyList(),
-    val logoUrl: String = "",
-    val epgUrl: String = "",
-    val headers: Map<String, String> = emptyMap(),
-    val groupId: String = ""
-)
-EOF
-
-# 3.2 Group.kt
-cat > "$SRC_DIR/Group.kt" << 'EOF'
-package com.ku9.player
-
-data class Group(
-    val id: String = "",
-    val name: String = "",
-    val channels: List<Channel> = emptyList(),
-    val subGroups: List<Group> = emptyList()
-)
-EOF
-
-# 3.3 M3UParser.kt - 修正类型错误
-cat > "$SRC_DIR/M3UParser.kt" << 'EOF'
-package com.ku9.player
-
-class M3UParser {
-
-    fun parse(content: String): List<Group> {
-        val groups = mutableListOf<Group>()
-        val lines = content.lines()
-        var currentGroupName = "默认"
-        val currentChannels = mutableListOf<Channel>()
-
-        for (line in lines) {
-            val trimmed = line.trim()
-            when {
-                trimmed.startsWith("#EXTINF:") -> {
-                    val name = trimmed.substringAfter(",").trim()
-                    val groupMatch = Regex("group-title=\"(.*?)\"").find(trimmed)
-                    val groupName = groupMatch?.groupValues?.get(1) ?: "默认"
-
-                    if (groupName != currentGroupName && currentChannels.isNotEmpty()) {
-                        groups.add(Group(name = currentGroupName, channels = currentChannels.toList()))
-                        currentChannels.clear()
-                        currentGroupName = groupName
-                    }
-                }
-                trimmed.startsWith("#") -> {
-                    // skip comments
-                }
-                trimmed.isNotEmpty() && !trimmed.startsWith("#EXT") -> {
-                    // 这里简化处理，直接创建频道
-                    val channel = Channel(name = "频道${currentChannels.size + 1}", url = trimmed)
-                    currentChannels.add(channel)
-                }
-            }
-        }
-        if (currentChannels.isNotEmpty()) {
-            groups.add(Group(name = currentGroupName, channels = currentChannels.toList()))
-        }
-        return groups
-    }
-}
-EOF
-
-# 3.4 PlayerManager.kt - 修正 Builder 用法
 cat > "$SRC_DIR/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -133,7 +57,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import java.util.concurrent.atomic.AtomicBoolean
 
 @UnstableApi
@@ -168,23 +91,13 @@ class PlayerManager(private val context: Context) {
 
     private fun initPlayer(): ExoPlayer {
         if (exoPlayer == null) {
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(10000)
-                .setReadTimeoutMs(10000)
-                .setDefaultRequestProperties(currentHeaders)
-
             val selector = DefaultTrackSelector(context)
-            val loadErrorPolicy = DefaultLoadErrorHandlingPolicy(MAX_RETRY_COUNT)
-
-            // 正确用法：在 Builder 中设置所有参数
+            // 简化构建，避免使用可能不兼容的 API
             val player = ExoPlayer.Builder(context)
                 .setTrackSelector(selector)
-                .setLoadErrorHandlingPolicy(loadErrorPolicy)
                 .build()
-                .apply {
-                    addListener(playerListener)
-                }
+            // 监听器在 build 后添加
+            player.addListener(playerListener)
             exoPlayer = player
         }
         return exoPlayer!!
@@ -238,89 +151,8 @@ class PlayerManager(private val context: Context) {
 }
 EOF
 
-# 3.5 SourceManager.kt - 已修正
-cat > "$SRC_DIR/SourceManager.kt" << 'EOF'
-package com.ku9.player
-
-import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.InputStream
-import java.net.URL
-
-class SourceManager(private val context: Context) {
-
-    data class Source(val name: String, val url: String, val type: SourceType) {
-        enum class SourceType { M3U, TXT }
-    }
-
-    private val sources = mutableListOf<Source>()
-    private var currentSourceIndex = 0
-    private var currentGroups: List<Group> = emptyList()
-
-    suspend fun addSource(name: String, url: String, type: Source.SourceType): Boolean {
-        return try {
-            sources.add(Source(name, url, type))
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    suspend fun loadSource(index: Int): List<Group> {
-        if (index !in sources.indices) return emptyList()
-        currentSourceIndex = index
-        val source = sources[index]
-        return withContext(Dispatchers.IO) {
-            try {
-                val inputStream: InputStream = if (source.url.startsWith("http")) {
-                    URL(source.url).openStream()
-                } else {
-                    File(source.url).inputStream()
-                }
-                val content = inputStream.bufferedReader().readText()
-                inputStream.close()
-                currentGroups = when (source.type) {
-                    Source.SourceType.M3U -> M3UParser().parse(content)
-                    Source.SourceType.TXT -> parseTXT(content)
-                }
-                currentGroups
-            } catch (e: Exception) {
-                e.printStackTrace()
-                emptyList()
-            }
-        }
-    }
-
-    suspend fun switchToNextSource(): List<Group>? {
-        if (sources.isEmpty()) return null
-        val nextIndex = (currentSourceIndex + 1) % sources.size
-        return loadSource(nextIndex)
-    }
-
-    fun getCurrentGroups(): List<Group> = currentGroups
-
-    fun getSources(): List<Source> = sources
-
-    fun getCurrentSourceIndex(): Int = currentSourceIndex
-
-    private fun parseTXT(content: String): List<Group> {
-        val channels = content.lines()
-            .mapNotNull { line ->
-                val trimmed = line.trim()
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) return@mapNotNull null
-                val parts = trimmed.split(",", limit = 2)
-                if (parts.size >= 2) {
-                    Channel(name = parts[0].trim(), url = parts[1].trim())
-                } else null
-            }
-        return listOf(Group(name = "默认", channels = channels))
-    }
-}
-EOF
-
-# 3.6 其他必需文件
+# ---------- 3. 确保其他文件存在且正确（之前已修复，无需重复） ----------
+# 但为了保险，补全可能缺失的 EpgProgram、EpgAdapter 等
 cat > "$SRC_DIR/EpgProgram.kt" << 'EOF'
 package com.ku9.player
 
@@ -367,272 +199,10 @@ class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 }
 EOF
 
-cat > "$SRC_DIR/ChannelAdapter.kt" << 'EOF'
-package com.ku9.player
-
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import androidx.recyclerview.widget.RecyclerView
-import com.ku9.player.databinding.ItemChannelBinding
-
-class ChannelAdapter(
-    private val onItemClick: (Channel) -> Unit
-) : RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
-
-    private var items: List<Channel> = emptyList()
-
-    fun submitList(list: List<Channel>) {
-        items = list
-        notifyDataSetChanged()
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemChannelBinding.inflate(
-            LayoutInflater.from(parent.context), parent, false
-        )
-        return ViewHolder(binding)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val channel = items[position]
-        holder.binding.channelName.text = channel.name
-        holder.binding.root.setOnClickListener { onItemClick(channel) }
-    }
-
-    override fun getItemCount() = items.size
-
-    class ViewHolder(val binding: ItemChannelBinding) :
-        RecyclerView.ViewHolder(binding.root)
-}
-EOF
-
-cat > "$SRC_DIR/ChannelListFragment.kt" << 'EOF'
-package com.ku9.player
-
-import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.Toast
-import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-
-class ChannelListFragment : Fragment() {
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_channel_list, container, false)
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        val rvChannels = view.findViewById<RecyclerView>(R.id.rv_channels)
-        rvChannels.layoutManager = LinearLayoutManager(requireContext())
-
-        val channels = listOf(
-            Channel("1", "CCTV-1", "http://example.com/1"),
-            Channel("2", "CCTV-2", "http://example.com/2"),
-            Channel("3", "CCTV-3", "http://example.com/3")
-        )
-
-        val adapter = ChannelAdapter { channel ->
-            Toast.makeText(requireContext(), "播放: ${channel.name}", Toast.LENGTH_SHORT).show()
-        }
-        adapter.submitList(channels)
-        rvChannels.adapter = adapter
-    }
-}
-EOF
-
-cat > "$SRC_DIR/MainActivity.kt" << 'EOF'
-package com.ku9.player
-
-import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-
-class MainActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.container, ChannelListFragment())
-                .commit()
-        }
-    }
-}
-EOF
-
-cat > "$SRC_DIR/ParserManager.kt" << 'EOF'
-package com.ku9.player
-
-class ParserManager {
-    fun parseM3U(content: String): List<Group> {
-        return M3UParser().parse(content)
-    }
-}
-EOF
-
-cat > "$SRC_DIR/SettingsFragment.kt" << 'EOF'
-package com.ku9.player
-
-import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import androidx.fragment.app.Fragment
-
-class SettingsFragment : Fragment() {
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_settings, container, false)
-    }
-}
-EOF
-
-# ---------- 4. 布局文件 ----------
-LAYOUT_DIR="android/app/src/main/res/layout"
-mkdir -p "$LAYOUT_DIR"
-
-cat > "$LAYOUT_DIR/activity_main.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:id="@+id/container" />
-EOF
-
-cat > "$LAYOUT_DIR/fragment_channel_list.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-    <androidx.appcompat.widget.SearchView
-        android:id="@+id/search_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:queryHint="搜索频道..." />
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_channels"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scrollbars="vertical" />
-</LinearLayout>
-EOF
-
-cat > "$LAYOUT_DIR/item_channel.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="16dp">
-    <ImageView
-        android:id="@+id/channel_logo"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@android:drawable/ic_menu_gallery" />
-    <TextView
-        android:id="@+id/channel_name"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_marginStart="16dp"
-        android:textSize="18sp"
-        android:gravity="center_vertical" />
-</LinearLayout>
-EOF
-
-cat > "$LAYOUT_DIR/fragment_settings.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="设置"
-        android:textSize="24sp" />
-</LinearLayout>
-EOF
-
-cat > "$LAYOUT_DIR/fragment_epg.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
-        <Button
-            android:id="@+id/prev_day"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="前一天" />
-        <TextView
-            android:id="@+id/date_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="18sp"
-            android:gravity="center"
-            android:text="日期" />
-        <Button
-            android:id="@+id/next_day"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="后一天" />
-    </LinearLayout>
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/epg_recycler"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scrollbars="vertical" />
-</LinearLayout>
-EOF
-
-# ---------- 5. drawable ----------
-mkdir -p android/app/src/main/res/drawable
-cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <group
-        android:scaleX="0.3"
-        android:scaleY="0.3"
-        android:translateX="37.8"
-        android:translateY="37.8">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,27 L81,54 L54,81 L27,54 Z" />
-        <path
-            android:fillColor="#FF0000"
-            android:pathData="M54,27 L81,54 L54,81 L27,54 Z" />
-    </group>
-</vector>
-EOF
-
-# ---------- 6. 清理生成目录 ----------
+# ---------- 4. 清理 ----------
 rm -rf android/app/build/generated
 
 echo "=========================================="
-echo "  ✅ 所有修复已完成，现在构建将成功"
+echo "  ✅ 修复完成（PlayerManager 已简化）"
+echo "  现在构建应该成功"
 echo "=========================================="
