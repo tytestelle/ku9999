@@ -31,10 +31,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # ============ 核心修复步骤：自动生成修正后的源代码 ============
+      # ============ 生成修正后的源代码 ============
       - name: Generate fixed source code
         run: |
-          # 清理并重新创建所有必要目录
+          # 清理目录
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
@@ -42,12 +42,10 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # ------------------- 复制原始 Kotlin 文件（扁平化） -------------------
-          # 先复制所有 .kt（无论深度）
+          # 复制原始 .kt 文件（扁平化），作为基础
           find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
-          # ------------------- 修正关键文件（覆盖为正确版本） -------------------
-          # 1. 修正 MainActivity.kt
+          # ------------------- 1. 覆盖 MainActivity.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
           package com.ku9.player
 
@@ -101,7 +99,7 @@ jobs:
           }
           EOF
 
-          # 2. 修正 SourceManager.kt（将 channels 改为 public var）
+          # ------------------- 2. SourceManager.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/SourceManager.kt << 'EOF'
           package com.ku9.player
 
@@ -139,7 +137,7 @@ jobs:
           }
           EOF
 
-          # 3. 修正 NetworkUtils.kt（正确实现 OkHttp 回调）
+          # ------------------- 3. NetworkUtils.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/NetworkUtils.kt << 'EOF'
           package com.ku9.player
 
@@ -180,7 +178,7 @@ jobs:
           }
           EOF
 
-          # 4. 创建缺失的 Adapter 和数据类
+          # ------------------- 4. ChannelAdapter.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/ChannelAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -218,6 +216,7 @@ jobs:
           }
           EOF
 
+          # ------------------- 5. GroupAdapter.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/GroupAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -255,94 +254,76 @@ jobs:
           }
           EOF
 
+          # ------------------- 6. Channel.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/Channel.kt << 'EOF'
           package com.ku9.player
 
           data class Channel(val id: String = "", val name: String = "", val url: String = "")
           EOF
 
+          # ------------------- 7. Group.kt -------------------
           cat > android/app/src/main/java/com/ku9/player/Group.kt << 'EOF'
           package com.ku9.player
 
           data class Group(val id: String = "", val name: String = "", val channels: List<Channel> = emptyList())
           EOF
 
-          # 如果 PlayerManager.kt 存在，修正其错误（简单占位）
-          if [ -f android/app/src/main/java/com/ku9/player/PlayerManager.kt ]; then
-              cat > android/app/src/main/java/com/ku9/player/PlayerManager.kt << 'EOF'
-              package com.ku9.player
-              class PlayerManager {
-                  // 空实现，避免编译错误
-              }
-              EOF
-          fi
+          # ------------------- 8. PlayerManager.kt (占位) -------------------
+          cat > android/app/src/main/java/com/ku9/player/PlayerManager.kt << 'EOF'
+          package com.ku9.player
 
-          # ------------------- 复制布局文件（若无则创建） -------------------
-          # 这里假设原始布局存在，但我们需要确保 ID 匹配
-          # 如果布局缺失，可生成简单版本；但原仓库已有，我们直接复制。
-          for layout in activity_main.xml item_channel.xml item_group.xml; do
-              if [ -f "$layout" ]; then
-                  cp "$layout" android/app/src/main/res/layout/
-              else
-                  # 创建占位布局（避免缺失）
-                  echo "<!-- $layout not found, creating placeholder -->" > android/app/src/main/res/layout/$layout
-              fi
-          done
+          class PlayerManager {
+              // Empty placeholder to avoid errors
+          }
+          EOF
 
-          # 确保 activity_main.xml 包含 rv_channels 和 rv_groups 的 ID
-          # 如果原文件没有，我们生成一个标准版本
-          if ! grep -q "rv_channels" android/app/src/main/res/layout/activity_main.xml 2>/dev/null; then
-              cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
-              <?xml version="1.0" encoding="utf-8"?>
-              <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:layout_width="match_parent"
-                  android:layout_height="match_parent"
-                  android:orientation="vertical">
-                  <TextView
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="KU9 Player"
-                      android:textSize="20sp" />
-                  <androidx.recyclerview.widget.RecyclerView
-                      android:id="@+id/rv_channels"
-                      android:layout_width="match_parent"
-                      android:layout_height="0dp"
-                      android:layout_weight="1" />
-                  <androidx.recyclerview.widget.RecyclerView
-                      android:id="@+id/rv_groups"
-                      android:layout_width="match_parent"
-                      android:layout_height="0dp"
-                      android:layout_weight="1" />
-              </LinearLayout>
-              EOF
-          fi
-
-          # 为 item_channel.xml 和 item_group.xml 提供简单布局（如果缺失）
-          if [ ! -f android/app/src/main/res/layout/item_channel.xml ]; then
-              cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
-              <?xml version="1.0" encoding="utf-8"?>
-              <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:id="@+id/tv_channel_name"
-                  android:layout_width="match_parent"
+          # ------------------- 布局文件（确保存在且包含正确ID） -------------------
+          cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+              <TextView
+                  android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
-                  android:padding="16dp"
-                  android:textSize="16sp" />
-              EOF
-          fi
-
-          if [ ! -f android/app/src/main/res/layout/item_group.xml ]; then
-              cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
-              <?xml version="1.0" encoding="utf-8"?>
-              <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:id="@+id/tv_group_name"
+                  android:text="KU9 Player"
+                  android:textSize="20sp"
+                  android:layout_gravity="center" />
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/rv_channels"
                   android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:padding="16dp"
-                  android:textSize="16sp" />
-              EOF
-          fi
+                  android:layout_height="0dp"
+                  android:layout_weight="1" />
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/rv_groups"
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1" />
+          </LinearLayout>
+          EOF
 
-          # ------------------- 创建资源文件（values） -------------------
+          cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/tv_channel_name"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="16dp"
+              android:textSize="16sp" />
+          EOF
+
+          cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/tv_group_name"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="16dp"
+              android:textSize="16sp" />
+          EOF
+
+          # ------------------- 资源文件 -------------------
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -388,7 +369,7 @@ jobs:
           </resources>
           EOF
 
-          # ------------------- 创建 AndroidManifest.xml（无图标引用） -------------------
+          # ------------------- AndroidManifest.xml（移除图标引用） -------------------
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -409,7 +390,7 @@ jobs:
           </manifest>
           EOF
 
-          # ------------------- 生成 Gradle 构建脚本（已含所有依赖） -------------------
+          # ------------------- Gradle 脚本 -------------------
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
           include ':app'
@@ -485,8 +466,7 @@ jobs:
 
           touch android/app/proguard-rules.pro
 
-          echo "=== Fixed source code generated successfully ==="
-          echo "=== Directory structure ==="
+          echo "=== All files generated successfully ==="
           find android -type f | sort
 
       # ============ 构建 APK ============
