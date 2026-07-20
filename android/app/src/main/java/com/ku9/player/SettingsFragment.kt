@@ -7,8 +7,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
-import androidx.fragment.app.Fragment
 import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.Fragment
 
 class SettingsFragment : Fragment() {
 
@@ -19,32 +19,27 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 硬解/软解开关
         val decoderSwitch = view.findViewById<Switch>(R.id.decoder_switch)
         decoderSwitch.isChecked = SettingsManager.isHardwareDecoder()
         decoderSwitch.setOnCheckedChangeListener { _, isChecked ->
             SettingsManager.setHardwareDecoder(isChecked)
-            // 通知播放器切换
-            (activity as? MainActivity)?.let {
-                // 获取PlayerManager并切换
-                val playerManager = (requireContext().applicationContext as? MyApplication)?.playerManager
-                playerManager?.switchDecoder(isChecked)
-            }
+            val app = requireContext().applicationContext as MyApplication
+            app.playerManager.switchDecoder(isChecked)
         }
 
-        // 设置EPG URL
         val epgUrlEdit = view.findViewById<EditText>(R.id.epg_url_edit)
         epgUrlEdit.setText(SettingsManager.getEpgUrl())
-
-        val saveEpgBtn = view.findViewById<Button>(R.id.save_epg_btn)
-        saveEpgBtn.setOnClickListener {
-            val url = epgUrlEdit.text.toString()
-            SettingsManager.saveEpgUrl(url)
+        view.findViewById<Button>(R.id.save_epg_btn).setOnClickListener {
+            SettingsManager.saveEpgUrl(epgUrlEdit.text.toString())
         }
 
-        // 添加直播源（弹出对话框输入URL）
-        val addSourceBtn = view.findViewById<Button>(R.id.add_source_btn)
-        addSourceBtn.setOnClickListener {
+        val sourceUrlEdit = view.findViewById<EditText>(R.id.source_url_edit)
+        sourceUrlEdit.setText(SettingsManager.getSourceUrl())
+        view.findViewById<Button>(R.id.save_source_btn).setOnClickListener {
+            SettingsManager.saveSourceUrl(sourceUrlEdit.text.toString())
+        }
+
+        view.findViewById<Button>(R.id.add_source_btn).setOnClickListener {
             showAddSourceDialog()
         }
     }
@@ -60,9 +55,8 @@ class SettingsFragment : Fragment() {
             val name = nameEdit.text.toString()
             val url = urlEdit.text.toString()
             if (name.isNotBlank() && url.isNotBlank()) {
-                // 将源保存到SourceManager（需获取实例）
-                // 实际可保存到SharedPreferences或数据库
-                // 此处略
+                // 可保存到设置或直接使用
+                SettingsManager.saveSourceUrl(url)
             }
         }
         builder.setNegativeButton("取消", null)
