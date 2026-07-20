@@ -1,46 +1,74 @@
 package com.ku9.player
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.SearchView
 import androidx.fragment.app.Fragment
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
+class ChannelListFragment : Fragment() {
 
-    private lateinit var bottomNav: BottomNavigationView
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var searchView: SearchView
+    private lateinit var adapter: ChannelAdapter
+    private val sourceManager by lazy { SourceManager(requireContext()) }
+    private var allChannels: List<Channel> = emptyList()
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        return inflater.inflate(R.layout.fragment_channel_list, container, false)
+    }
 
-        bottomNav = findViewById(R.id.bottom_navigation)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        if (savedInstanceState == null) {
-            switchFragment(ChannelListFragment())
+        recyclerView = view.findViewById(R.id.channel_recycler)
+        searchView = view.findViewById(R.id.search_view)
+
+        adapter = ChannelAdapter { channel ->
+            val app = requireContext().applicationContext as MyApplication
+            app.playerManager.play(channel.url, mapOf("User-Agent" to "Ku9Player"))
         }
+        recyclerView.layoutManager = LinearLayoutManager(context)
+        recyclerView.adapter = adapter
 
-        bottomNav.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.nav_channels -> {
-                    switchFragment(ChannelListFragment())
-                    true
-                }
-                R.id.nav_epg -> {
-                    switchFragment(EPGFragment())
-                    true
-                }
-                R.id.nav_settings -> {
-                    switchFragment(SettingsFragment())
-                    true
-                }
-                else -> false
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                filterChannels(query ?: "")
+                return true
+            }
+            override fun onQueryTextChange(newText: String?): Boolean {
+                filterChannels(newText ?: "")
+                return true
+            }
+        })
+
+        loadSource()
+    }
+
+    private fun loadSource() {
+        CoroutineScope(Dispatchers.Main).launch {
+            // 从设置获取源URL，若为空则使用默认
+            val url = SettingsManager.getSourceUrl()
+            if (url.isNotEmpty()) {
+                sourceManager.addSource("我的源", url, SourceManager.Source.SourceType.M3U)
+                val groups = sourceManager.loadSource(0)
+                allChannels = groups.flatMap { it.channels }
+                adapter.submitList(allChannels)
+            } else {
+                // 可提示添加源
             }
         }
     }
 
-    private fun switchFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
+    private fun filterChannels(query: String) {
+        val filtered = if (query.isBlank()) allChannels
+        else allChannels.filter { it.name.contains(query, ignoreCase = true) }
+        adapter.submitList(filtered)
     }
 }
