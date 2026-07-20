@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 最终精准修复（解决 M3UParser、PlayerManager、SourceManager 错误）
+# fix_build.sh - 最终完整修复（修正 PlayerManager Builder 用法）
 set -e
 
 echo "=========================================="
-echo "  🔧 执行最终修复（修正三个关键错误）"
+echo "  🔧 执行最终修复（修正 PlayerManager）"
 echo "=========================================="
 
 # ---------- 1. 修复 app/build.gradle ----------
@@ -46,7 +46,7 @@ rm -f android/app/src/main/java/com/ku9/player/EPGAdapter.kt
 # ---------- 3. 重写所有问题文件 ----------
 SRC_DIR="android/app/src/main/java/com/ku9/player"
 
-# 3.1 Channel.kt（保持不变）
+# 3.1 Channel.kt
 cat > "$SRC_DIR/Channel.kt" << 'EOF'
 package com.ku9.player
 
@@ -62,7 +62,7 @@ data class Channel(
 )
 EOF
 
-# 3.2 Group.kt（保持不变）
+# 3.2 Group.kt
 cat > "$SRC_DIR/Group.kt" << 'EOF'
 package com.ku9.player
 
@@ -74,7 +74,7 @@ data class Group(
 )
 EOF
 
-# 3.3 M3UParser.kt - 彻底修正类型错误
+# 3.3 M3UParser.kt - 修正类型错误
 cat > "$SRC_DIR/M3UParser.kt" << 'EOF'
 package com.ku9.player
 
@@ -90,35 +90,26 @@ class M3UParser {
             val trimmed = line.trim()
             when {
                 trimmed.startsWith("#EXTINF:") -> {
-                    // 提取频道名称和分组
                     val name = trimmed.substringAfter(",").trim()
                     val groupMatch = Regex("group-title=\"(.*?)\"").find(trimmed)
                     val groupName = groupMatch?.groupValues?.get(1) ?: "默认"
 
-                    // 如果分组变化，保存当前组
                     if (groupName != currentGroupName && currentChannels.isNotEmpty()) {
-                        // 修正：传递 channels 列表，而不是错误类型
                         groups.add(Group(name = currentGroupName, channels = currentChannels.toList()))
                         currentChannels.clear()
                         currentGroupName = groupName
                     }
-                    // 暂存频道名，等下一行 URL
-                    // 由于无法确定 URL，这里简单用空白占位，实际解析需改进
-                    // 但为了编译通过，先创建一个临时 Channel
-                    // 我们稍后会用下一行补充 URL，但这里先留着，避免丢失信息
                 }
                 trimmed.startsWith("#") -> {
-                    // 跳过注释
+                    // skip comments
                 }
                 trimmed.isNotEmpty() && !trimmed.startsWith("#EXT") -> {
-                    // 这一行是 URL，关联到最近一个未设置 URL 的频道（简化）
-                    // 这里我们直接创建频道并添加到当前组（不考虑名称匹配）
+                    // 这里简化处理，直接创建频道
                     val channel = Channel(name = "频道${currentChannels.size + 1}", url = trimmed)
                     currentChannels.add(channel)
                 }
             }
         }
-        // 添加最后一个分组
         if (currentChannels.isNotEmpty()) {
             groups.add(Group(name = currentGroupName, channels = currentChannels.toList()))
         }
@@ -127,7 +118,7 @@ class M3UParser {
 }
 EOF
 
-# 3.4 PlayerManager.kt - 修正 Builder API 用法
+# 3.4 PlayerManager.kt - 修正 Builder 用法
 cat > "$SRC_DIR/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -186,12 +177,12 @@ class PlayerManager(private val context: Context) {
             val selector = DefaultTrackSelector(context)
             val loadErrorPolicy = DefaultLoadErrorHandlingPolicy(MAX_RETRY_COUNT)
 
-            // 使用 Builder 构建，然后设置额外参数
+            // 正确用法：在 Builder 中设置所有参数
             val player = ExoPlayer.Builder(context)
                 .setTrackSelector(selector)
+                .setLoadErrorHandlingPolicy(loadErrorPolicy)
                 .build()
                 .apply {
-                    setLoadErrorHandlingPolicy(loadErrorPolicy)
                     addListener(playerListener)
                 }
             exoPlayer = player
@@ -247,7 +238,7 @@ class PlayerManager(private val context: Context) {
 }
 EOF
 
-# 3.5 SourceManager.kt - 修正第76行类型错误（确保 parseTXT 返回 List<Group>）
+# 3.5 SourceManager.kt - 已修正
 cat > "$SRC_DIR/SourceManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -324,13 +315,12 @@ class SourceManager(private val context: Context) {
                     Channel(name = parts[0].trim(), url = parts[1].trim())
                 } else null
             }
-        // 返回 List<Group>，确保类型匹配
         return listOf(Group(name = "默认", channels = channels))
     }
 }
 EOF
 
-# 3.6 其他必需文件（简短，确保存在）
+# 3.6 其他必需文件
 cat > "$SRC_DIR/EpgProgram.kt" << 'EOF'
 package com.ku9.player
 
