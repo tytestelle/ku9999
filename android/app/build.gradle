@@ -22,14 +22,11 @@ android {
         }
     }
 
-    // 指向根目录的源码和资源
+    // 指向根目录
     sourceSets {
         main {
-            // 根目录下的所有 .kt 文件（包括子目录）
             java.srcDirs = ['../../']
-            // 根目录下的 res 文件夹（我们会创建）
             res.srcDirs = ['../../res']
-            // 清单文件
             manifest.srcFile '../../AndroidManifest.xml'
         }
     }
