@@ -115,16 +115,31 @@ jobs:
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
           gradle clean assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
-          if [ $? -ne 0 ]; then
-            echo "=== Build failed. Showing last 200 lines of log ==="
-            tail -n 200 build.log
-            exit 1
+          BUILD_STATUS=$?
+          echo "=== Build log (last 300 lines) ==="
+          tail -n 300 build.log
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Build failed."
+            exit $BUILD_STATUS
           fi
 
-      - name: Upload APK
+      - name: Find APK files
+        run: |
+          echo "=== Searching for APK in all possible locations ==="
+          find android -name "*.apk" -type f
+          echo "=== Check debug APK directory ==="
+          ls -la android/app/build/outputs/apk/debug/ || echo "Directory does not exist"
+          echo "=== Check release APK directory ==="
+          ls -la android/app/build/outputs/apk/release/ || echo "Directory does not exist"
+          echo "=== List all build outputs ==="
+          find android/app/build -type f 2>/dev/null || echo "No build directory"
+
+      - name: Upload APK if found
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: app-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/*.apk
           if-no-files-found: warn
