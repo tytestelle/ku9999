@@ -23,39 +23,28 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Install Gradle 8.2
+      - name: Prepare standard Android project
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
-          unzip -q gradle-8.2-bin.zip
-          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
-
-      - name: Prepare Android project (copy files to standard locations)
-        run: |
-          # 清空并重新创建标准目录结构
-          rm -rf android/app/src/main
-          mkdir -p android/app/src/main/java/com/ku9/player/data
-          mkdir -p android/app/src/main/java/com/ku9/player/parser
-          mkdir -p android/app/src/main/java/com/ku9/player/player
-          mkdir -p android/app/src/main/java/com/ku9/player/ui
-          mkdir -p android/app/src/main/java/com/ku9/player/utils
-          mkdir -p android/app/src/main/java/com/ku9/player/manager
+          # 清理并重建标准目录
+          rm -rf android/app/src/main/java
+          rm -rf android/app/src/main/res
+          
+          mkdir -p android/app/src/main/java/com/ku9/player/{manager,utils,data,parser,player,ui}
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-xhdpi
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制根目录下的所有 .kt 文件到主包
-          find . -maxdepth 1 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
-          # 复制子目录 .kt 文件
-          if [ -d data ]; then cp data/*.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true; fi
-          if [ -d parser ]; then cp parser/*.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true; fi
-          if [ -d player ]; then cp player/*.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true; fi
-          if [ -d ui ]; then cp ui/*.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true; fi
-          if [ -d utils ]; then cp utils/*.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true; fi
-          if [ -d manager ]; then cp manager/*.kt android/app/src/main/java/com/ku9/player/manager/ 2>/dev/null || true; fi
+          # 复制所有 Kotlin 文件
+          find . -maxdepth 2 -name "*.kt" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          [ -d data ] && cp data/*.kt android/app/src/main/java/com/ku9/player/data/ 2>/dev/null || true
+          [ -d parser ] && cp parser/*.kt android/app/src/main/java/com/ku9/player/parser/ 2>/dev/null || true
+          [ -d player ] && cp player/*.kt android/app/src/main/java/com/ku9/player/player/ 2>/dev/null || true
+          [ -d ui ] && cp ui/*.kt android/app/src/main/java/com/ku9/player/ui/ 2>/dev/null || true
+          [ -d utils ] && cp utils/*.kt android/app/src/main/java/com/ku9/player/utils/ 2>/dev/null || true
 
           # 复制布局文件
           [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
@@ -71,12 +60,14 @@ jobs:
               <color name="colorAccent">#FF4081</color>
           </resources>
           EOF
+
           cat > android/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">KU9 Player</string>
           </resources>
           EOF
+
           cat > android/app/src/main/res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -108,31 +99,27 @@ jobs:
           </manifest>
           EOF
 
-          # 创建空白图标占位
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher_round.xml
+          # 创建空白的 ic_launcher 占位
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher_round.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.xml
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.xml
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
-          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.xml
 
-      - name: Build APK
+          echo "Project prepared."
+
+      - name: Install Gradle 8.2 and build
         run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          gradle clean assembleDebug --stacktrace --info --no-daemon
-
-      - name: List build outputs
-        run: |
-          echo "=== Searching for APK ==="
-          find android -name "*.apk" -type f || echo "No APK found"
-          echo "=== Debug output directory ==="
-          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
-          echo "=== Build output directory tree ==="
-          find android/app/build -type d -name "outputs" -exec ls -la {} \;
+          gradle clean assembleDebug --stacktrace --info --no-daemon 2>&1 | tee build.log
+          if [ $? -ne 0 ]; then
+            echo "=== Build failed. Showing last 200 lines of log ==="
+            tail -n 200 build.log
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
