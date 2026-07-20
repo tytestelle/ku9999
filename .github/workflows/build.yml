@@ -29,24 +29,29 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Verify source files exist
+      - name: Verify essential files
         run: |
-          echo "=== Checking key files ==="
-          [ -f MainActivity.kt ] && echo "MainActivity.kt found" || echo "MainActivity.kt missing"
-          [ -f activity_main.xml ] && echo "activity_main.xml found" || echo "activity_main.xml missing"
-          [ -f AndroidManifest.xml ] && echo "AndroidManifest.xml found" || echo "AndroidManifest.xml missing"
+          echo "=== Check root directory ==="
           ls -la
+          echo "=== Check app/build.gradle ==="
+          cat android/app/build.gradle
 
-      - name: Build APK
+      - name: Build with full debug logs
         run: |
           cd android
-          gradle clean assembleDebug --stacktrace --info --no-daemon
+          gradle clean assembleDebug --stacktrace --debug --no-daemon 2>&1 | tee build.log
+          BUILD_STATUS=$?
+          echo "=== Last 500 lines of build.log ==="
+          tail -n 500 build.log
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_STATUS"
+            exit $BUILD_STATUS
+          fi
 
-      - name: List build outputs
+      - name: List APK outputs
         run: |
           echo "=== Searching for APK ==="
           find android -name "*.apk" -type f || echo "No APK found"
-          echo "=== Debug output directory ==="
           ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
 
       - name: Upload APK
