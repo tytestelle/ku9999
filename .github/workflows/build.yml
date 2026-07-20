@@ -23,15 +23,10 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Install Gradle
+      - name: Create minimal Android project
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
-          unzip -q gradle-8.2-bin.zip
-          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
-
-      - name: Copy all sources to standard Android directories
-        run: |
-          # 确保目标目录存在
+          # 删除旧的 android 目录
+          rm -rf android
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
@@ -41,52 +36,113 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制主 Activity 和其他 .kt 文件（从根目录和子目录）
-          cp -f MainActivity.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || echo "MainActivity.kt not found"
-          # 复制子目录中的 .kt 文件（如果存在）
-          for dir in data parser player ui utils; do
-            if [ -d "$dir" ]; then
-              mkdir -p android/app/src/main/java/com/ku9/player/$dir
-              cp -f $dir/*.kt android/app/src/main/java/com/ku9/player/$dir/ 2>/dev/null || true
-            fi
-          done
+          # 创建 build.gradle（根）
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.0'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+              }
+          }
+          EOF
 
-          # 复制布局文件
-          cp -f activity_main.xml android/app/src/main/res/layout/ 2>/dev/null || echo "activity_main.xml not found"
-          cp -f item_channel.xml android/app/src/main/res/layout/ 2>/dev/null || true
-          cp -f item_group.xml android/app/src/main/res/layout/ 2>/dev/null || true
+          # 创建 settings.gradle
+          cat > android/settings.gradle << 'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          rootProject.name = "KU9Player"
+          include ':app'
+          EOF
 
-          # 创建必要的资源文件
+          # 创建 app/build.gradle
+          cat > android/app/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
+          android {
+              namespace 'com.ku9.player'
+              compileSdk 34
+              defaultConfig {
+                  applicationId 'com.ku9.player'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0.0'
+              }
+              buildTypes {
+                  release { minifyEnabled false }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          repositories {
+              google()
+              mavenCentral()
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+
+          # 创建 MainActivity.kt
+          cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
+          package com.ku9.player
+          import android.os.Bundle
+          import androidx.appcompat.app.AppCompatActivity
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+              }
+          }
+          EOF
+
+          # 创建 activity_main.xml
+          cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:gravity="center"
+              android:orientation="vertical">
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="KU9 Player"
+                  android:textSize="24sp" />
+          </LinearLayout>
+          EOF
+
+          # 创建资源文件
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="colorPrimary">#3F51B5</color>
               <color name="colorPrimaryDark">#303F9F</color>
               <color name="colorAccent">#FF4081</color>
-              <color name="black">#FF000000</color>
-              <color name="white">#FFFFFFFF</color>
           </resources>
           EOF
-
           cat > android/app/src/main/res/values/strings.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">KU9 Player</string>
           </resources>
           EOF
-
           cat > android/app/src/main/res/values/themes.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
 
-          # 复制 AndroidManifest.xml（如果根目录有，否则创建默认）
-          if [ -f AndroidManifest.xml ]; then
-            cp -f AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          else
-            cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          # 创建 AndroidManifest.xml
+          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.ku9.player">
@@ -108,35 +164,27 @@ jobs:
               </application>
           </manifest>
           EOF
-          fi
 
-          # 创建 ic_launcher 占位（避免资源缺失）
-          for d in hdpi mdpi xhdpi xxhdpi xxxhdpi; do
-            echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-$d/ic_launcher.xml
-            echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-$d/ic_launcher_round.xml
-          done
+          # 创建空的 ic_launcher 占位文件（避免资源缺失）
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
+          echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          echo "=== Files copied to standard locations ==="
-          ls -la android/app/src/main/java/com/ku9/player/
-          ls -la android/app/src/main/res/layout/
-          ls -la android/app/src/main/res/values/
+          # 生成 gradle wrapper
+          cd android
+          gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
 
       - name: Build APK
         run: |
           cd android
-          gradle clean assembleDebug --stacktrace --info --no-daemon
-
-      - name: List APK
-        run: |
-          echo "=== Searching for APK ==="
-          find android -name "*.apk" -type f || echo "No APK found"
-          echo "=== Debug directory content ==="
-          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
