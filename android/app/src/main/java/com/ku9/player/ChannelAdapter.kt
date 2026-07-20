@@ -5,18 +5,21 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.ku9.player.databinding.ItemChannelBinding
 
-class ChannelAdapter(private val onItemClick: (Channel) -> Unit) :
-    RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
+class ChannelAdapter(
+    private val onItemClick: (Channel) -> Unit
+) : RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
 
-    private var items: List<Channel> = emptyList()
+    private var items: List<Channel> = emptyList() // 添加泛型 <Channel>
 
-    fun submitList(list: List<Channel>) {
+    fun submitList(list: List<Channel>) { // 添加泛型 <Channel>
         items = list
         notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemChannelBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemChannelBinding.inflate(
+            LayoutInflater.from(parent.context), parent, false
+        )
         return ViewHolder(binding)
     }
 
@@ -28,5 +31,6 @@ class ChannelAdapter(private val onItemClick: (Channel) -> Unit) :
 
     override fun getItemCount() = items.size
 
-    class ViewHolder(val binding: ItemChannelBinding) : RecyclerView.ViewHolder(binding.root)
+    class ViewHolder(val binding: ItemChannelBinding) :
+        RecyclerView.ViewHolder(binding.root)
 }
