@@ -13,10 +13,10 @@ import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.ui.PlayerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.ku9.player.data.Channel
+import com.ku9.player.manager.SourceManager
 import com.ku9.player.parser.*
-import com.ku9.player.player.PlayerManager
-import com.ku9.player.ui.*
 import com.ku9.player.utils.Preferences
+import com.ku9.player.utils.StorageManager
 import com.ku9.player.utils.showToast
 import kotlinx.coroutines.*
 
@@ -36,14 +36,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnNext: ImageButton
 
-    private lateinit var playerManager: PlayerManager
+    private lateinit var player: ExoPlayer
     private lateinit var channelAdapter: ChannelAdapter
     private lateinit var groupAdapter: GroupAdapter
 
-    private var channels = mutableListOf<Channel>()
     private var currentGroup = "全部"
     private var currentPosition = -1
     private val prefs by lazy { Preferences(this) }
+    private val scope = CoroutineScope(Dispatchers.IO + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +52,11 @@ class MainActivity : AppCompatActivity() {
         initViews()
         initPlayer()
         setupListeners()
-        loadSettings()
+        // 初始化存储目录（创建酷9目录结构）
+        StorageManager.apply { 
+            // 这些目录会在首次访问时自动创建
+        }
+        // 加载源
         loadDefaultSource()
     }
 
@@ -76,29 +80,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initPlayer() {
-        playerManager = PlayerManager(this, playerView)
-        playerManager.setPlayerListener(object : PlayerManager.PlayerListener {
-            override fun onReady() {
-                hideLoading()
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+        player = ExoPlayer.Builder(this).build()
+        playerView.player = player
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    hideLoading()
+                    btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+                }
             }
-            override fun onError(error: PlaybackException) {
+            override fun onPlayerError(error: PlaybackException) {
                 hideLoading()
                 showToast("播放错误: ${error.message}")
                 if (prefs.getBoolean("reconnect", true)) {
                     switchToNextChannel()
                 }
             }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
-                    btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
-                }
-            }
         })
         seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    playerManager.setVolume(progress / 100f)
+                    player.volume = progress / 100f
                     prefs.putInt("volume", progress)
                 }
             }
@@ -107,7 +109,7 @@ class MainActivity : AppCompatActivity() {
         })
         val vol = prefs.getInt("volume", 100)
         seekBarVolume.progress = vol
-        playerManager.setVolume(vol / 100f)
+        player.volume = vol / 100f
     }
 
     private fun setupListeners() {
@@ -119,57 +121,63 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadDefaultSource() {
-        val savedSource = prefs.getString("source_url", "")
-        if (savedSource.isNotEmpty()) {
-            loadSource(savedSource)
-        } else {
-            // 内置测试源（与之前相同，保证开箱可用）
-            val builtin = """
-                #EXTM3U
-                #EXTINF:-1 group-title="测试",测试1
-                https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
-                #EXTINF:-1 group-title="测试",测试2
-                https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8
-            """.trimIndent()
-            parseAndDisplay(builtin)
+        // 先尝试加载保存的配置
+        val config = SourceManager.loadConfiguration()
+        val savedUrl = config?.get("sourceUrl") ?: prefs.getString("source_url", "")
+        if (savedUrl.isNotEmpty()) {
+            loadNetworkSource(savedUrl)
+            return
         }
-    }
-
-    private fun loadSource(url: String) {
-        showLoading("加载直播源...")
-        NetworkUtils.get(url) { result ->
-            runOnUiThread {
-                hideLoading()
-                if (result.isSuccess) {
-                    parseAndDisplay(result.getOrNull() ?: "")
-                    prefs.putString("source_url", url)
-                    showToast("加载成功: ${channels.size} 个频道")
-                } else {
-                    showToast("加载失败: ${result.exceptionOrNull()?.message}")
-                }
+        // 尝试加载本地文件（localData 目录下的文件）
+        val localFiles = SourceManager.getLocalSourceFiles()
+        if (localFiles.isNotEmpty()) {
+            // 加载最近修改的那个
+            val latest = localFiles.maxByOrNull { it.lastModified() }
+            latest?.let {
+                val channels = SourceManager.loadLocalFile(it)
+                displayChannels(channels)
+                showToast("加载本地源: ${it.name}")
+                return
             }
         }
+        // 都没有，使用内置测试源
+        val builtin = """
+            #EXTM3U
+            #EXTINF:-1 group-title="测试",测试1
+            https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+            #EXTINF:-1 group-title="测试",测试2
+            https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8
+        """.trimIndent()
+        val parsed = M3UParser.parse(builtin)
+        SourceManager.channels = parsed
+        displayChannels(parsed)
     }
 
-    private fun parseAndDisplay(content: String) {
-        if (content.isEmpty()) return
-        channels.clear()
-        channels.addAll(ParserManager.parse(content))
-        if (channels.isEmpty()) {
-            showToast("未解析到频道")
-        }
-        updateUI()
-        // 如果有保存的上次播放频道，自动播放
-        val lastChannel = prefs.getString("last_channel", "")
-        if (lastChannel.isNotEmpty()) {
-            val idx = channels.indexOfFirst { it.name == lastChannel }
-            if (idx >= 0) playChannel(idx)
-        } else if (channels.isNotEmpty() && prefs.getBoolean("autoplay", false)) {
-            playChannel(0)
+    private fun loadNetworkSource(url: String) {
+        showLoading("加载直播源...")
+        scope.launch {
+            SourceManager.loadNetworkSource(
+                url = url,
+                onSuccess = { channels ->
+                    withContext(Dispatchers.Main) {
+                        hideLoading()
+                        displayChannels(channels)
+                        SourceManager.saveConfiguration(url)
+                        prefs.putString("source_url", url)
+                        showToast("加载成功: ${channels.size} 个频道")
+                    }
+                },
+                onError = { error ->
+                    withContext(Dispatchers.Main) {
+                        hideLoading()
+                        showToast("加载失败: $error")
+                    }
+                }
+            )
         }
     }
 
-    private fun updateUI() {
+    private fun displayChannels(channels: List<Channel>) {
         // 更新分组
         val groups = channels.map { it.group }.distinct().sorted()
         val groupListData = listOf("全部") + groups
@@ -182,19 +190,18 @@ class MainActivity : AppCompatActivity() {
             }
             groupList.adapter = groupAdapter
         }
-
+        // 更新频道列表
         filterChannels()
         tvChannelCount.text = "共 ${channels.size} 个频道"
     }
 
     private fun filterChannels() {
-        val filtered = if (currentGroup == "全部") channels else channels.filter { it.group == currentGroup }
+        val filtered = if (currentGroup == "全部") SourceManager.channels else SourceManager.channels.filter { it.group == currentGroup }
         if (::channelAdapter.isInitialized) {
             channelAdapter.updateData(filtered)
         } else {
             channelAdapter = ChannelAdapter(filtered) { position ->
-                // 在点击时找到原始索引
-                val originalIndex = channels.indexOfFirst { it == filtered[position] }
+                val originalIndex = SourceManager.channels.indexOfFirst { it == filtered[position] }
                 if (originalIndex >= 0) playChannel(originalIndex)
             }
             channelList.adapter = channelAdapter
@@ -203,11 +210,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playChannel(position: Int) {
-        if (position !in channels.indices) return
+        if (position !in SourceManager.channels.indices) return
         currentPosition = position
-        val channel = channels[position]
+        val channel = SourceManager.channels[position]
         showLoading("加载 ${channel.name} ...")
-        playerManager.play(channel.url)
+        val mediaItem = MediaItem.fromUri(channel.url)
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        player.playWhenReady = true
         tvNowPlaying.text = channel.name
         prefs.putString("last_channel", channel.name)
         btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
@@ -216,28 +226,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchToPrevChannel() {
-        if (channels.isEmpty()) return
-        if (currentPosition <= 0) currentPosition = channels.size
-        playChannel((currentPosition - 1) % channels.size)
+        if (SourceManager.channels.isEmpty()) return
+        if (currentPosition <= 0) currentPosition = SourceManager.channels.size
+        playChannel((currentPosition - 1) % SourceManager.channels.size)
     }
 
     private fun switchToNextChannel() {
-        if (channels.isEmpty()) return
-        playChannel((currentPosition + 1) % channels.size)
+        if (SourceManager.channels.isEmpty()) return
+        playChannel((currentPosition + 1) % SourceManager.channels.size)
     }
 
     private fun togglePlayPause() {
-        if (playerManager.isPlaying) {
-            playerManager.pause()
+        if (player.isPlaying) {
+            player.pause()
             btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
         } else {
-            playerManager.resume()
+            player.playWhenReady = true
             btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
         }
     }
 
     private fun showImportDialog() {
-        val items = arrayOf("从网络加载", "从本地文件导入", "粘贴内容")
+        val items = arrayOf("从网络加载", "从本地文件导入", "粘贴内容", "选择本地源文件")
         MaterialAlertDialogBuilder(this)
             .setTitle("导入直播源")
             .setItems(items) { _, which ->
@@ -245,6 +255,7 @@ class MainActivity : AppCompatActivity() {
                     0 -> showUrlInputDialog()
                     1 -> showFilePicker()
                     2 -> showPasteDialog()
+                    3 -> showLocalSourceSelector()
                 }
             }
             .show()
@@ -258,7 +269,7 @@ class MainActivity : AppCompatActivity() {
             .setView(input)
             .setPositiveButton("加载") { _, _ ->
                 val url = input.text.toString()
-                if (url.isNotEmpty()) loadSource(url)
+                if (url.isNotEmpty()) loadNetworkSource(url)
             }
             .setNegativeButton("取消", null)
             .show()
@@ -281,9 +292,36 @@ class MainActivity : AppCompatActivity() {
             .setView(input)
             .setPositiveButton("解析") { _, _ ->
                 val content = input.text.toString()
-                if (content.isNotEmpty()) parseAndDisplay(content)
+                if (content.isNotEmpty()) {
+                    val parsed = when {
+                        content.contains("#EXTM3U") || content.contains("#EXTINF") -> M3UParser.parse(content)
+                        else -> TXTParser.parse(content)
+                    }
+                    SourceManager.channels = parsed
+                    displayChannels(parsed)
+                    SourceManager.saveConfiguration("")
+                    showToast("解析成功: ${parsed.size} 个频道")
+                }
             }
             .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showLocalSourceSelector() {
+        val files = SourceManager.getLocalSourceFiles()
+        if (files.isEmpty()) {
+            showToast("localData 目录中没有源文件")
+            return
+        }
+        val fileNames = files.map { it.name }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("选择本地源")
+            .setItems(fileNames) { _, which ->
+                val file = files[which]
+                val channels = SourceManager.loadLocalFile(file)
+                displayChannels(channels)
+                showToast("加载: ${file.name}")
+            }
             .show()
     }
 
@@ -293,9 +331,16 @@ class MainActivity : AppCompatActivity() {
             val uri = data?.data ?: return
             val content = contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
             if (content != null) {
-                parseAndDisplay(content)
-                prefs.putString("source_url", uri.toString())
-                showToast("导入成功: ${channels.size} 个频道")
+                val parsed = when {
+                    content.contains("#EXTM3U") || content.contains("#EXTINF") -> M3UParser.parse(content)
+                    else -> TXTParser.parse(content)
+                }
+                SourceManager.channels = parsed
+                displayChannels(parsed)
+                // 保存到 localData
+                val fileName = uri.lastPathSegment ?: "imported.txt"
+                StorageManager.saveTextToFile(content, StorageManager.localData, fileName)
+                showToast("导入成功: ${parsed.size} 个频道")
             } else {
                 showToast("读取文件失败")
             }
@@ -303,7 +348,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleFullscreen() {
-        // 实现全屏切换
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             if (window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
                 window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -326,9 +370,9 @@ class MainActivity : AppCompatActivity() {
         loadingOverlay.visibility = View.GONE
     }
 
-    private fun loadSettings() {
-        // 自动播放、断线重连等设置可从Preferences读取
-        // 这里省略，可在设置界面中实现
+    override fun onDestroy() {
+        super.onDestroy()
+        player.release()
     }
 
     companion object {
