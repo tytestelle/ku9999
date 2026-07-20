@@ -31,26 +31,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Generate full project sources and resources
+      - name: Clean and regenerate all sources and resources
         run: |
-          echo "🔧 开始生成完整的项目源码和资源..."
-          
-          # 创建目录
+          echo "🧹 清理旧的源码和资源..."
+          rm -rf android/app/src/main/java/com/ku9/player
+          rm -rf android/app/src/main/res/layout
+          rm -rf android/app/src/main/res/menu
+          rm -rf android/app/src/main/res/values
+
+          echo "📁 创建目录..."
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # ---------- 生成 Kotlin 文件 ----------
-
-          # 1. MainActivity.kt
+          # ---------- 生成所有 Kotlin 文件 ----------
           cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
           package com.ku9.player
 
           import android.os.Bundle
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
-          import androidx.fragment.app.Fragment
           import com.google.android.material.bottomnavigation.BottomNavigationView
 
           class MainActivity : AppCompatActivity() {
@@ -83,7 +84,6 @@ jobs:
           }
           EOF
 
-          # 2. ChannelListFragment.kt
           cat > android/app/src/main/java/com/ku9/player/ChannelListFragment.kt << 'EOF'
           package com.ku9.player
 
@@ -106,11 +106,12 @@ jobs:
                   val rvChannels = view.findViewById<RecyclerView>(R.id.rv_channels)
                   rvChannels.layoutManager = LinearLayoutManager(requireContext())
 
-                  // 示例数据
                   val channels = listOf(
                       Channel("1", "CCTV-1", "http://example.com/1"),
                       Channel("2", "CCTV-2", "http://example.com/2"),
-                      Channel("3", "CCTV-3", "http://example.com/3")
+                      Channel("3", "CCTV-3", "http://example.com/3"),
+                      Channel("4", "CCTV-4", "http://example.com/4"),
+                      Channel("5", "CCTV-5", "http://example.com/5")
                   )
                   val adapter = ChannelAdapter(channels) { channel ->
                       Toast.makeText(requireContext(), "播放: ${channel.name}", Toast.LENGTH_SHORT).show()
@@ -120,7 +121,6 @@ jobs:
           }
           EOF
 
-          # 3. ChannelAdapter.kt
           cat > android/app/src/main/java/com/ku9/player/ChannelAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -151,7 +151,18 @@ jobs:
           }
           EOF
 
-          # 4. GroupAdapter.kt
+          cat > android/app/src/main/java/com/ku9/player/Channel.kt << 'EOF'
+          package com.ku9.player
+
+          data class Channel(val id: String = "", val name: String = "", val url: String = "")
+          EOF
+
+          cat > android/app/src/main/java/com/ku9/player/Group.kt << 'EOF'
+          package com.ku9.player
+
+          data class Group(val id: String = "", val name: String = "", val channels: List<Channel> = emptyList())
+          EOF
+
           cat > android/app/src/main/java/com/ku9/player/GroupAdapter.kt << 'EOF'
           package com.ku9.player
 
@@ -182,21 +193,7 @@ jobs:
           }
           EOF
 
-          # 5. Channel.kt
-          cat > android/app/src/main/java/com/ku9/player/Channel.kt << 'EOF'
-          package com.ku9.player
-
-          data class Channel(val id: String = "", val name: String = "", val url: String = "")
-          EOF
-
-          # 6. Group.kt
-          cat > android/app/src/main/java/com/ku9/player/Group.kt << 'EOF'
-          package com.ku9.player
-
-          data class Group(val id: String = "", val name: String = "", val channels: List<Channel> = emptyList())
-          EOF
-
-          # 7. 其他占位文件（避免编译错误）
+          # 占位文件（避免编译错误）
           cat > android/app/src/main/java/com/ku9/player/SourceManager.kt << 'EOF'
           package com.ku9.player
           class SourceManager { /* 占位 */ }
@@ -238,8 +235,6 @@ jobs:
           EOF
 
           # ---------- 生成布局文件 ----------
-
-          # activity_main.xml
           cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -260,7 +255,6 @@ jobs:
           </LinearLayout>
           EOF
 
-          # fragment_channel_list.xml
           cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -283,7 +277,6 @@ jobs:
           </LinearLayout>
           EOF
 
-          # item_channel.xml (ID与代码匹配)
           cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -311,7 +304,6 @@ jobs:
           </LinearLayout>
           EOF
 
-          # item_group.xml
           cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -396,7 +388,7 @@ jobs:
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
 
-          echo "✅ 所有源码和资源文件生成完毕！"
+          echo "✅ 所有源码和资源文件已重新生成！"
 
       - name: Build APK with Gradle
         id: build
