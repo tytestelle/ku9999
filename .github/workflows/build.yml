@@ -83,10 +83,13 @@ jobs:
           </resources>
           EOF
 
-          # ------------------- 声明常用自定义属性（涵盖可能使用的） -------------------
+          # ============================================================
+          # 🔥 关键修复：生成完整的 attrs.xml，声明所有自定义属性
+          # ============================================================
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
+              <!-- PlayerView 相关属性 -->
               <declare-styleable name="PlayerView">
                   <attr name="use_controller" format="boolean" />
                   <attr name="controller" format="boolean" />
@@ -104,6 +107,25 @@ jobs:
                       <enum name="fill" value="3" />
                       <enum name="zoom" value="4" />
                   </attr>
+                  <attr name="shutter_background_color" format="color" />
+                  <attr name="keep_content_on_player_reset" format="boolean" />
+                  <attr name="hide_during_ads" format="boolean" />
+                  <attr name="auto_show" format="boolean" />
+                  <attr name="show_timeout" format="integer" />
+                  <attr name="show_buffering" format="enum">
+                      <enum name="never" value="0" />
+                      <enum name="when_playing" value="1" />
+                      <enum name="always" value="2" />
+                  </attr>
+              </declare-styleable>
+
+              <!-- 通用属性（兼容其他自定义View） -->
+              <declare-styleable name="CustomAttributes">
+                  <attr name="use_controller" />
+                  <attr name="controller" />
+                  <attr name="player" />
+                  <attr name="surface_type" />
+                  <attr name="resize_mode" />
               </declare-styleable>
           </resources>
           EOF
@@ -200,6 +222,8 @@ jobs:
               implementation 'com.google.android.material:material:1.9.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
               implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
+              // 如果使用了 ExoPlayer，请取消注释以下依赖
+              // implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
           }
           EOF
 
@@ -256,7 +280,7 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: warn   # 改为 warn，以免因无 APK 导致整个工作流失败（日志会提前报错）
+          if-no-files-found: warn
 
       - name: Upload full build log (always)
         uses: actions/upload-artifact@v4
