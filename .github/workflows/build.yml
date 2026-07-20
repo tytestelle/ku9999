@@ -23,8 +23,8 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      # 创建缺失的资源文件（如果根目录没有 res/values）
-      - name: Create missing resources
+      # 创建缺失的资源文件（根目录下的 res/values）
+      - name: Create resources
         run: |
           mkdir -p res/values
           cat > res/values/colors.xml << 'EOF'
@@ -47,21 +47,24 @@ jobs:
               <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
           </resources>
           EOF
+          echo "Resources created."
 
-      # 生成 Gradle Wrapper（强制使用 8.2）
-      - name: Generate Gradle wrapper
+      # 生成 Gradle Wrapper 8.2（强制使用）
+      - name: Generate wrapper
         run: |
           cd android
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
+          # 验证 wrapper 版本
+          ./gradlew --version
 
-      # 构建（使用 wrapper）
+      # 使用 wrapper 构建（不是系统 gradle）
       - name: Build APK
         run: |
           cd android
           ./gradlew clean assembleDebug --stacktrace --info --no-daemon
 
-      # 搜索并上传 APK
+      # 查找并上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
