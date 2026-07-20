@@ -23,21 +23,16 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.2
+      - name: Install Gradle 8.2
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Generate Gradle wrapper
+      - name: Build APK
         run: |
           cd android
-          gradle wrapper --gradle-version 8.2
-          chmod +x gradlew
-
-      - name: Build with detailed logs
-        run: |
-          cd android
-          ./gradlew assembleDebug --stacktrace --info --no-daemon
+          gradle assembleDebug --stacktrace --info --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
