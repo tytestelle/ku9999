@@ -119,8 +119,8 @@ jobs:
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          # ------------------- 生成必要的 Gradle 构建脚本 -------------------
-          echo "=== Creating Gradle scripts ==="
+          # ------------------- 生成必要的 Gradle 构建脚本（修正 Kotlin 插件） -------------------
+          echo "=== Creating Gradle scripts with Kotlin support ==="
           # 1) settings.gradle (位于 android/ 目录)
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
@@ -136,6 +136,7 @@ jobs:
               }
               dependencies {
                   classpath 'com.android.tools.build:gradle:8.1.1'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
               }
           }
 
@@ -154,6 +155,7 @@ jobs:
           # 3) app 模块 build.gradle (位于 android/app/)
           cat > android/app/build.gradle << 'EOF'
           apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
 
           android {
               namespace 'com.ku9.player'
@@ -180,16 +182,17 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
+              // 如果需要，可取消注释以下 kotlinOptions 块
+              // kotlinOptions {
+              //     jvmTarget = '17'
+              // }
           }
 
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.9.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              // 如需添加更多依赖，可在此处补充
+              implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
           }
           EOF
 
