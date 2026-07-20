@@ -23,35 +23,238 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Prepare source and resources (your original script)
-        run: |
-          # 这里保持您原始的 prepare 脚本（复制 kt 和资源）
-          # 请确保此部分与您之前成功的脚本一致
-          # 为了简洁，省略具体内容（您需要补充）
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/*.gradle*', 'android/**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Install Gradle 8.2 and build
+      - name: Prepare source, resources and Gradle scripts
+        run: |
+          # ------------------- 清理并创建目录 -------------------
+          rm -rf android/app/src/main/java
+          rm -rf android/app/src/main/res
+          
+          mkdir -p android/app/src/main/java/com/ku9/player
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/values
+
+          # ------------------- 复制所有 Kotlin 文件 -------------------
+          echo "=== Copying Kotlin files ==="
+          find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          for dir in data parser player ui utils; do
+            if [ -d "$dir" ]; then
+              cp $dir/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
+            fi
+          done
+
+          # ------------------- 复制布局文件 -------------------
+          echo "=== Copying layout files ==="
+          for layout in activity_main.xml item_channel.xml item_group.xml; do
+            if [ -f "$layout" ]; then
+              cp "$layout" android/app/src/main/res/layout/
+            fi
+          done
+
+          # ------------------- 创建资源文件 -------------------
+          echo "=== Creating resource files ==="
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
+
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
+
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
+
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+          </resources>
+          EOF
+
+          # ------------------- 创建 AndroidManifest.xml -------------------
+          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.ku9.player">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.KU9Player"
+                  android:usesCleartextTraffic="true">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # ------------------- 生成 Gradle 构建脚本 -------------------
+          echo "=== Creating Gradle scripts ==="
+          cat > android/settings.gradle << 'EOF'
+          rootProject.name = "ku9999"
+          include ':app'
+          EOF
+
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.1'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          task clean(type: Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
+
+          cat > android/app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
+
+          android {
+              namespace 'com.ku9.player'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'com.ku9.player'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.9.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
+              implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+              implementation 'com.google.android.exoplayer:exoplayer-ui:2.19.1'
+              implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+              implementation 'com.google.code.gson:gson:2.10.1'
+              implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+          }
+          EOF
+
+          touch android/app/proguard-rules.pro
+
+          echo "=== Directory structure under android/ ==="
+          find android -type f | sort
+
+      # ⭐ 关键步骤：执行修复脚本，移除 AndroidManifest.xml 中的图标引用
+      - name: Run fix script
+        run: |
+          chmod +x fix_build.sh
+          ./fix_build.sh
+
+      - name: Build APK with Gradle
         id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          gradle clean assembleDebug --no-daemon --no-build-cache
+          
+          echo "=== Starting build ==="
+          gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
+          
+          cp build.log ../build.log
+          
           if [ $BUILD_STATUS -ne 0 ]; then
-            echo "Gradle build failed"
+            echo "Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
-          echo "=== Build successful ==="
-          # 列出所有 APK 文件
-          echo "=== APK files in app/build/outputs/apk ==="
-          find app/build/outputs/apk -name "*.apk" -ls || echo "No APK found"
+          
+          echo "=== Searching for APK ==="
+          APK_COUNT=$(find app/build -type f -name "*.apk" | wc -l)
+          echo "Found $APK_COUNT APK(s)"
+          find app/build -type f -name "*.apk" -ls
+          if [ $APK_COUNT -eq 0 ]; then
+            echo "ERROR: No APK generated"
+            find app/build -type f 2>/dev/null
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: app-debug
-          # 路径相对于工作区根目录，注意 android/ 前缀
           path: android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
