@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <Switch
+            android:id="@+id/decoder_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="硬解开关" />
+
+        <EditText
+            android:id="@+id/epg_url_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="EPG XML URL" />
+        <Button
+            android:id="@+id/save_epg_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="保存EPG地址" />
+
+        <EditText
+            android:id="@+id/source_url_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="直播源 M3U/TXT URL" />
+        <Button
+            android:id="@+id/save_source_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="保存源地址" />
+
+        <Button
+            android:id="@+id/add_source_btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="添加新源" />
+
+    </LinearLayout>
+</ScrollView>
