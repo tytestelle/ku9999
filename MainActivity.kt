@@ -1,51 +1,63 @@
 package com.ku9.player
 
 import android.os.Bundle
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.launch
-
-fun MainActivity.showToast(msg: String) {
-    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-}
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var channelAdapter: ChannelAdapter
-    private lateinit var groupAdapter: GroupAdapter
+    private lateinit var bottomNav: BottomNavigationView
     private val sourceManager = SourceManager()
+    private val playerManager = PlayerManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val rvChannels = findViewById<RecyclerView>(R.id.rv_channels)
-        val rvGroups = findViewById<RecyclerView>(R.id.rv_groups)
-
-        channelAdapter = ChannelAdapter { channel ->
-            lifecycleScope.launch {
-                showToast("点击频道: ${channel.name}")
-                // 这里可以调用播放器
+        bottomNav = findViewById(R.id.bottom_navigation)
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_channels -> {
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, ChannelListFragment())
+                        .commit()
+                    true
+                }
+                R.id.nav_epg -> {
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, EPGFragment())
+                        .commit()
+                    true
+                }
+                R.id.nav_settings -> {
+                    Toast.makeText(this, "设置页面待开发", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                else -> false
             }
         }
-        groupAdapter = GroupAdapter { group ->
-            lifecycleScope.launch {
-                showToast("点击分组: ${group.name}")
-            }
-        }
+        // 默认显示频道列表
+        bottomNav.selectedItemId = R.id.nav_channels
 
-        rvChannels.layoutManager = LinearLayoutManager(this)
-        rvChannels.adapter = channelAdapter
-        rvGroups.layoutManager = LinearLayoutManager(this)
-        rvGroups.adapter = groupAdapter
-
+        // 初始化数据
         lifecycleScope.launch {
             sourceManager.loadData()
-            channelAdapter.setData(sourceManager.channels)
-            groupAdapter.setData(sourceManager.groups)
         }
+    }
+
+    // 提供给 Fragment 调用的方法
+    fun getSourceManager() = sourceManager
+    fun getPlayerManager() = playerManager
+
+    override fun onDestroy() {
+        playerManager.release()
+        super.onDestroy()
     }
 }
