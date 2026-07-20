@@ -31,98 +31,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Move all Kotlin files and fix resources
+      - name: Copy Kotlin files and generate resources
         run: |
-          echo "🔧 移动所有 Kotlin 文件到正确路径..."
-          
           # 1. 创建目标包目录
           mkdir -p android/app/src/main/java/com/ku9/player
           
-          # 2. 将仓库根目录下所有 .kt 文件（包括子目录）复制到目标路径
-          # 使用 find 查找所有 .kt 文件（排除 android 目录），并复制
-          find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          # 2. 复制所有 .kt 文件（排除 android 目录）
+          echo "复制 Kotlin 文件..."
+          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
           
-          echo "✅ Kotlin 文件已移动。"
-          
-          # 3. 创建缺失的资源文件（如果不存在）
+          # 3. 生成缺失的资源文件（使用 base64 解码方式避免 heredoc 错误）
           mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/menu
+          mkdir -p android/app/src/main/res/layout
           
-          # 生成 themes.xml（定义 Theme.KU9Player）
-          cat > android/app/src/main/res/values/themes.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
-          </resources>
-          EOF
+          # themes.xml
+          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHlsZSBuYW1lPSJUaGVtZS5LVTlQbGF5ZXIiIHBhcmVudD0iVGhlbWUuQXBwQ29tcGF0LkxpZ2h0LkRhcmtBY3Rpb25CYXIiIC8+CjwvcmVzb3VyY2VzPgo=" | base64 -d > android/app/src/main/res/values/themes.xml
           
-          # 生成 attrs.xml（若缺失）
-          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            cat > android/app/src/main/res/values/attrs.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <attr name="use_controller" format="boolean" />
-                <attr name="controller" format="boolean" />
-                <attr name="player" format="reference" />
-                <attr name="surface_type" format="enum">
-                    <enum name="surface_view" value="0" />
-                    <enum name="texture_view" value="1" />
-                    <enum name="spherical_view" value="2" />
-                    <enum name="video_decoder_gl_surface_view" value="3" />
-                </attr>
-                <attr name="resize_mode" format="enum">
-                    <enum name="fit" value="0" />
-                    <enum name="fixed_width" value="1" />
-                    <enum name="fixed_height" value="2" />
-                    <enum name="fill" value="3" />
-                    <enum name="zoom" value="4" />
-                </attr>
-            </resources>
-            EOF
-          fi
+          # attrs.xml
+          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxhdHRyIG5hbWU9InVzZV9jb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJjb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJwbGF5ZXIiIGZvcm1hdD0icmVmZXJlbmNlIiAvPgogICAgPGF0dHIgbmFtZT0ic3VyZmFjZV90eXBlIiBmb3JtYXQ9ImVudW0iPgogICAgICAgIDxlbnVtIG5hbWU9InN1cmZhY2VfdmlldyIgdmFsdWU9IjAiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idGV4dHVyZV92aWV3IiB2YWx1ZT0iMSIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJzcGhlcmljYWxfdmlldyIgdmFsdWU9IjIiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idmlkZW9fZGVjb2Rlcl9nbF9zdXJmYWNlX3ZpZXciIHZhbHVlPSIzIiAvPgogICAgPC9hdHRyPgogICAgPGF0dHIgbmFtZT0icmVzaXplX21vZGUiIGZvcm1hdD0iZW51bSI+CiAgICAgICAgPGVudW0gbmFtZT0iZml0IiB2YWx1ZT0iMCIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaXhlZF93aWR0aCIgdmFsdWU9IjEiIC8+CiAgICAgICAgPGVudW0gbmFtZT0iZml4ZWRfaGVpZ2h0IiB2YWx1ZT0iMiIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaWxsIiB2YWx1ZT0iMyIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJ6b29tIiB2YWx1ZT0iNCIgLz4KICAgIDwvYXR0cj4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/attrs.xml
           
-          # 生成 strings.xml 和 colors.xml（若缺失）
-          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
-            cat > android/app/src/main/res/values/strings.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <string name="app_name">KU9 Player</string>
-            </resources>
-            EOF
-          fi
+          # strings.xml
+          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPktVOSBQbGF5ZXI8L3N0cmluZz4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/strings.xml
           
-          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
-            cat > android/app/src/main/res/values/colors.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <color name="colorPrimary">#3F51B5</color>
-                <color name="colorPrimaryDark">#303F9F</color>
-                <color name="colorAccent">#FF4081</color>
-            </resources>
-            EOF
-          fi
+          # colors.xml
+          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxjb2xvciBuYW1lPSJjb2xvclByaW1hcnkiPiMzRjUxQjU8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yUHJpbWFyeURhcmsiPiMzMDNGOEY8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yQWNjZW50Ij4jRkY0MDgxPC9jb2xvcj4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/colors.xml
           
-          # 生成底部菜单（若缺失）
-          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
-            mkdir -p android/app/src/main/res/menu
-            cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <menu xmlns:android="http://schemas.android.com/apk/res/android">
-                <item android:id="@+id/nav_channels"
-                    android:icon="@android:drawable/ic_menu_view"
-                    android:title="频道" />
-                <item android:id="@+id/nav_epg"
-                    android:icon="@android:drawable/ic_menu_agenda"
-                    android:title="节目单" />
-                <item android:id="@+id/nav_settings"
-                    android:icon="@android:drawable/ic_menu_preferences"
-                    android:title="设置" />
-            </menu>
-            EOF
-          fi
+          # bottom_nav_menu.xml
+          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPG1lbnUgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj4KICAgIDxpdGVtIGFuZHJvaWQ6aWQ9IkArKy9pZC9uYXZfY2hhbm5lbHMiCiAgICAgICAgYW5kcm9pZDppY29uPSJAYW5kcm9pZDpkcmF3YWJsZS9pY19tZW51X3ZpZXciCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i6aKR6YGTIiAvPgogICAgPGl0ZW0gYW5kcm9pZDppZD0iQCsvpL2vbmF2X2VwZyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfYWdlbmRhIgogICAgICAgIGFuZHJvaWQ6dGl0bGU9IuenmOebuOWNlSIgLz4KICAgIDxpdGVtIGFuZHJvaWQ6aWQ9IkArKy9pZC9uYXZfc2V0dGluZ3MiCiAgICAgICAgYW5kcm9pZDppY29uPSJAYW5kcm9pZDpkcmF3YWJsZS9pY19tZW51X3ByZWZlcmVuY2VzIgogICAgICAgIGFuZHJvaWQ6dGl0bGU9Iuitiee6oiIgLz4KPC9tZW51Pgo=" | base64 -d > android/app/src/main/res/menu/bottom_nav_menu.xml
           
-          # 修复 AndroidManifest.xml（移除图标引用和 package 属性）
+          # 4. 修复 AndroidManifest.xml
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
@@ -130,14 +68,14 @@ jobs:
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
           
-          # 生成 gradle.properties（启用 AndroidX）
+          # 5. 创建 gradle.properties
           cat > android/gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
           
-          echo "✅ 所有资源已就绪。"
+          echo "所有准备工作完成。"
 
       - name: Build APK with Gradle
         id: build
