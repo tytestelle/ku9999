@@ -31,43 +31,162 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Copy all Kotlin files and generate missing resources
+      - name: Move all Kotlin files to correct package path
         run: |
-          echo "🚀 开始修复项目结构..."
+          echo "📦 开始复制所有 Kotlin 文件到目标包路径..."
+          TARGET_DIR="android/app/src/main/java/com/ku9/player"
+          mkdir -p "$TARGET_DIR"
+          
+          # 强制复制根目录及所有子目录中的 .kt 文件（排除 android 目录）
+          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} "$TARGET_DIR/" \;
+          
+          echo "✅ 复制完成。目标目录内容："
+          ls -la "$TARGET_DIR/"
+          echo "文件数量：$(ls -1 "$TARGET_DIR/" | wc -l)"
 
-          # 1. 创建目标包目录
-          mkdir -p android/app/src/main/java/com/ku9/player
-
-          # 2. 将仓库根目录所有 .kt 文件（排除 android/ 目录）复制到目标包
-          echo "📦 复制 Kotlin 文件..."
-          find . -maxdepth 3 -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
-          # 也复制子目录中的 .kt（如 data/, parser/ 等）
-          find . -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
-
-          # 3. 生成所有缺失的资源文件（布局、菜单、values）
+      - name: Generate missing resources and fix manifest
+        run: |
+          # 创建目录
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # 使用 base64 解码写入布局文件，避免 heredoc 编码问题
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICB4bWxuczphcHA9Imh0dHA6Ly9zY2hlbWFzLmFuZHJvaWQuY29tL2Fway9yZXMvYW5kcm9pZCIKICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSJtYXRjaF9wYXJlbnQiCiAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9Im1hdGNoX3BhcmVudCIKICAgIGFuZHJvaWQ6b3JpZW50YXRpb249InZlcnRpY2FsIj4KICAgIDxGcmFtZUxheW91dAogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9mcmFnbWVudF9jb250YWluZXIiCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfd2lkdGg9Im1hdGNoX3BhcmVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IjBkcCIKICAgICAgICBhbmRyb2lkOmxheW91dF93ZWlnaHQ9IjEiIC8+CiAgICA8Y29tLmdvb2dsZS5hbmRyb2lkLm1hdGVyaWFsLmJvdHRvbW5hdmlnYXRpb24uQm90dG9tTmF2aWdhdGlvblZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvYm90dG9tX25hdmlnYXRpb24iCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfd2lkdGg9Im1hdGNoX3BhcmVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IndyYXBfY29udGVudCIKICAgICAgICBhcHA6bWVudT0iQG1lbnUvYm90dG9tX25hdl9tZW51IiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/activity_main.xml
+          # 写入布局文件（使用 cat 直接生成，不用 base64，避免编码问题）
+          cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+              <FrameLayout
+                  android:id="@+id/fragment_container"
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1" />
+              <com.google.android.material.bottomnavigation.BottomNavigationView
+                  android:id="@+id/bottom_navigation"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  app:menu="@menu/bottom_nav_menu" />
+          </LinearLayout>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgYW5kcm9pZDpsYXlvdXRfaGVpZ2h0PSJtYXRjaF9wYXJlbnQiCiAgICBhbmRyb2lkOm9yaWVudGF0aW9uPSJ2ZXJ0aWNhbCI+CiAgICA8U3Bpbm5lcgogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9zcGlubmVyX2dyb3VwcyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0id3JhcF9jb250ZW50IiAvPgogICAgPGFuZHJvaWR4LmFwcGNvbXBhdC53aWRnZXQuU2VhcmNoVmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9zZWFyY2hfdmlldyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0id3JhcF9jb250ZW50IgogICAgICAgIGFuZHJvaWQ6cXVlcnlIaW50PSLmkJzosYHpopHpgZMiIC8+CiAgICA8YW5kcm9pZHgucmVjeWNsZXJ2aWV3LlJlY3ljbGVyVmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9ydl9jaGFubmVscyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0ibWF0Y2hfcGFyZW50IiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/fragment_channel_list.xml
+          cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+              <Spinner
+                  android:id="@+id/spinner_groups"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <androidx.appcompat.widget.SearchView
+                  android:id="@+id/search_view"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:queryHint="搜索频道" />
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/rv_channels"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+          </LinearLayout>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgYW5kcm9pZDpsYXlvdXRfaGVpZ2h0PSJ3cmFwX2NvbnRlbnQiCiAgICBhbmRyb2lkOnBhZGRpbmc9IjEycGQiCiAgICBhbmRyb2lkOm9yaWVudGF0aW9uPSJob3Jpem9udGFsIj4KICAgIDxJbWFnZVZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvaXZMb2dvIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSI0MGRwIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0iNDBkcCIKICAgICAgICBhbmRyb2lkOnNjYWxlVHlwZT0iY2VudGVyQ3JvcCIgLz4KICAgIDxUZXh0VmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC90dkNoYW5uZWxOYW1lIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSIwcCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IndyYXBfY29udGVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF93ZWlnaHQ9IjEiCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfbWFyZ2luU3RhcnQ9IjEycGQiCiAgICAgICAgYW5kcm9pZDp0ZXh0U2l6ZT0iMTZzcCIgLz4KICAgIDxJbWFnZVZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvaXZGYXZvcml0ZSIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0iMjRkcCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IjI0ZHAiCiAgICAgICAgYW5kcm9pZDpzcmM9IkBhbmRyb2lkOmRyYXdhYmxlL3N0YXJfb2ZmIiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/item_channel.xml
+          cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:padding="12dp"
+              android:orientation="horizontal">
+              <ImageView
+                  android:id="@+id/ivLogo"
+                  android:layout_width="40dp"
+                  android:layout_height="40dp"
+                  android:scaleType="centerCrop" />
+              <TextView
+                  android:id="@+id/tvChannelName"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:layout_marginStart="12dp"
+                  android:textSize="16sp" />
+              <ImageView
+                  android:id="@+id/ivFavorite"
+                  android:layout_width="24dp"
+                  android:layout_height="24dp"
+                  android:src="@android:drawable/star_off" />
+          </LinearLayout>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPG1lbnUgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj4KICAgIDxpdGVtCiAgICAgICAgYW5kcm9pZDppZD0iQGlkL25hdl9jaGFubmVscyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfdmlldyIKICAgICAgICBhbmRyb2lkOnRpdGxlPSLpopHpgZMiIC8+CiAgICA8aXRlbQogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9uYXZfZXBnIgogICAgICAgIGFuZHJvaWQ6aWNvbj0iQGFuZHJvaWQ6ZHJhd2FibGUvaWNfbWVudV9hZ2VuZGEiCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i56ym55uu5Y2VICIgLz4KICAgIDxpdGVtCiAgICAgICAgYW5kcm9pZDppZD0iQGlkL25hdl9zZXR0aW5ncyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfcHJlZmVyZW5jZXMiCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i6K6+572uIiAvPgo8L21lbnU+Cg==' | base64 -d > android/app/src/main/res/menu/bottom_nav_menu.xml
+          # 菜单
+          cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu xmlns:android="http://schemas.android.com/apk/res/android">
+              <item
+                  android:id="@+id/nav_channels"
+                  android:icon="@android:drawable/ic_menu_view"
+                  android:title="频道" />
+              <item
+                  android:id="@+id/nav_epg"
+                  android:icon="@android:drawable/ic_menu_agenda"
+                  android:title="节目单" />
+              <item
+                  android:id="@+id/nav_settings"
+                  android:icon="@android:drawable/ic_menu_preferences"
+                  android:title="设置" />
+          </menu>
+          EOF
 
-          # 生成 values 资源（themes, attrs, strings, colors）
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHlsZSBuYW1lPSJUaGVtZS5LVTlQbGF5ZXIiIHBhcmVudD0iVGhlbWUuQXBwQ29tcGF0LkxpZ2h0LkRhcmtBY3Rpb25CYXIiIC8+CjwvcmVzb3VyY2VzPgo=' | base64 -d > android/app/src/main/res/values/themes.xml
+          # values 资源
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxhdHRyIG5hbWU9InVzZV9jb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJjb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJwbGF5ZXIiIGZvcm1hdD0icmVmZXJlbmNlIiAvPgogICAgPGF0dHIgbmFtZT0ic3VyZmFjZV90eXBlIiBmb3JtYXQ9ImVudW0iPgogICAgICAgIDxlbnVtIG5hbWU9InN1cmZhY2VfdmlldyIgdmFsdWU9IjAiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idGV4dHVyZV92aWV3IiB2YWx1ZT0iMSIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJzcGhlcmljYWxfdmlldyIgdmFsdWU9IjIiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idmlkZW9fZGVjb2Rlcl9nbF9zdXJmYWNlX3ZpZXciIHZhbHVlPSIzIiAvPgogICAgPC9hdHRyPgogICAgPGF0dHIgbmFtZT0icmVzaXplX21vZGUiIGZvcm1hdD0iZW51bSI+CiAgICAgICAgPGVudW0gbmFtZT0iZml0IiB2YWx1ZT0iMCIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaXhlZF93aWR0aCIgdmFsdWU9IjEiIC8+CiAgICAgICAgPGVudW0gbmFtZT0iZml4ZWRfaGVpZ2h0IiB2YWx1ZT0iMiIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaWxsIiB2YWx1ZT0iMyIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJ6b29tIiB2YWx1ZT0iNCIgLz4KICAgIDwvYXR0cj4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/attrs.xml
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+          </resources>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPktVOSBQbGF5ZXI8L3N0cmluZz4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/strings.xml
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
 
-          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxjb2xvciBuYW1lPSJjb2xvclByaW1hcnkiPiMzRjUxQjU8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yUHJpbWFyeURhcmsiPiMzMDNGOEY8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yQWNjZW50Ij4jRkY0MDgxPC9jb2xvcj4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/colors.xml
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
 
-          # 修复 AndroidManifest.xml
+          # 修复 AndroidManifest.xml（移除图标引用）
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
@@ -75,17 +194,14 @@ jobs:
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
 
-          # 生成 gradle.properties
+          # gradle.properties
           cat > android/gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          echo "✅ 所有文件已就绪。"
-          # 列出目标目录的内容以便验证
-          echo "📁 目标包目录内容："
-          ls -la android/app/src/main/java/com/ku9/player/
+          echo "✅ 所有资源文件生成完毕。"
 
       - name: Build APK with Gradle
         id: build
