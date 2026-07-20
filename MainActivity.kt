@@ -6,9 +6,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -16,10 +14,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bottomNav: BottomNavigationView
     private val sourceManager = SourceManager()
     private val playerManager = PlayerManager()
+    private val settingsManager = SettingsManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 初始化设置管理器
+        settingsManager.init(this)
 
         bottomNav = findViewById(R.id.bottom_navigation)
         bottomNav.setOnItemSelectedListener { item ->
@@ -37,24 +39,28 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_settings -> {
-                    Toast.makeText(this, "设置页面待开发", Toast.LENGTH_SHORT).show()
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, SettingsFragment())
+                        .commit()
                     true
                 }
                 else -> false
             }
         }
-        // 默认显示频道列表
         bottomNav.selectedItemId = R.id.nav_channels
 
-        // 初始化数据
+        // 初始化播放器
+        playerManager.init(this)
+
+        // 加载数据
         lifecycleScope.launch {
             sourceManager.loadData()
         }
     }
 
-    // 提供给 Fragment 调用的方法
     fun getSourceManager() = sourceManager
     fun getPlayerManager() = playerManager
+    fun getSettingsManager() = settingsManager
 
     override fun onDestroy() {
         playerManager.release()
