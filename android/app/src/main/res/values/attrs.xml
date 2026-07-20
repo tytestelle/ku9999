@@ -1,1 +1,36 @@
-
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 播放器控制相关属性 -->
+    <attr name="use_controller" format="boolean" />
+    <attr name="controller" format="boolean" />
+    <attr name="player" format="reference" />
+    
+    <!-- 渲染表面类型 -->
+    <attr name="surface_type" format="enum">
+        <enum name="surface_view" value="0" />
+        <enum name="texture_view" value="1" />
+        <enum name="spherical_view" value="2" />
+        <enum name="video_decoder_gl_surface_view" value="3" />
+    </attr>
+    
+    <!-- 缩放模式 -->
+    <attr name="resize_mode" format="enum">
+        <enum name="fit" value="0" />
+        <enum name="fixed_width" value="1" />
+        <enum name="fixed_height" value="2" />
+        <enum name="fill" value="3" />
+        <enum name="zoom" value="4" />
+    </attr>
+    
+    <!-- 其他可能使用的属性 -->
+    <attr name="shutter_background_color" format="color" />
+    <attr name="keep_content_on_player_reset" format="boolean" />
+    <attr name="hide_during_ads" format="boolean" />
+    <attr name="auto_show" format="boolean" />
+    <attr name="show_timeout" format="integer" />
+    <attr name="show_buffering" format="enum">
+        <enum name="never" value="0" />
+        <enum name="when_playing" value="1" />
+        <enum name="always" value="2" />
+    </attr>
+</resources>
