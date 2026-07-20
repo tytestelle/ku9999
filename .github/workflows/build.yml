@@ -31,105 +31,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Fix resources and compile errors
+      - name: Ensure resources and gradle.properties
         run: |
-          echo "🔧 修复资源和编译错误..."
-
-          # 1. 创建 item_group.xml 布局（如果缺失）
-          mkdir -p android/app/src/main/res/layout
-          if [ ! -f android/app/src/main/res/layout/item_group.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/item_group.xml
-            echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/item_group.xml
-            echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/item_group.xml
-            echo '    android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_group.xml
-            echo '    android:padding="12dp">' >> android/app/src/main/res/layout/item_group.xml
-            echo '    <TextView' >> android/app/src/main/res/layout/item_group.xml
-            echo '        android:id="@+id/tv_group_name"' >> android/app/src/main/res/layout/item_group.xml
-            echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/item_group.xml
-            echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/item_group.xml
-            echo '        android:textSize="16sp" />' >> android/app/src/main/res/layout/item_group.xml
-            echo '</LinearLayout>' >> android/app/src/main/res/layout/item_group.xml
-          fi
-
-          # 2. 修正 ChannelAdapter.kt（移除 Glide，仅文字显示）
-          CHANNEL_ADAPTER="android/app/src/main/java/com/ku9/player/ChannelAdapter.kt"
-          if [ -f "$CHANNEL_ADAPTER" ]; then
-            # 查找是否包含 Glide 引用，如果有则替换
-            if grep -q "import com.bumptech.glide.Glide" "$CHANNEL_ADAPTER"; then
-              # 生成不含 Glide 的版本
-              cat > "$CHANNEL_ADAPTER" << 'EOF'
-          package com.ku9.player
-
-          import android.view.LayoutInflater
-          import android.view.View
-          import android.view.ViewGroup
-          import android.widget.ImageView
-          import android.widget.TextView
-          import androidx.recyclerview.widget.RecyclerView
-
-          class ChannelAdapter(
-              private val channels: List<Channel>,
-              private val onItemClick: (Channel) -> Unit
-          ) : RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
-              override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                  val view = LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
-                  return ViewHolder(view)
-              }
-              override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                  val channel = channels[position]
-                  holder.tvName.text = channel.name
-                  holder.ivLogo.setImageResource(android.R.drawable.ic_menu_gallery) // 占位图标
-                  holder.itemView.setOnClickListener { onItemClick(channel) }
-              }
-              override fun getItemCount() = channels.size
-
-              class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-                  val tvName: TextView = view.findViewById(R.id.tvChannelName)
-                  val ivLogo: ImageView = view.findViewById(R.id.ivLogo)
-              }
-          }
-          EOF
-              echo "✅ ChannelAdapter.kt 已修正（移除 Glide）"
-            fi
-          fi
-
-          # 3. 修正 GroupAdapter.kt（确保引用正确的 ID）
-          GROUP_ADAPTER="android/app/src/main/java/com/ku9/player/GroupAdapter.kt"
-          if [ -f "$GROUP_ADAPTER" ]; then
-            # 替换布局引用为 item_group 和 tv_group_name
-            sed -i 's/R\.layout\.item_group/R.layout.item_group/g' "$GROUP_ADAPTER"
-            sed -i 's/R\.id\.tvGroupName/R.id.tv_group_name/g' "$GROUP_ADAPTER"
-            echo "✅ GroupAdapter.kt 已修正"
-          fi
-
-          # 4. 修正 MainActivity.kt（SettingsManager 调用，SettingsFragment 注释）
-          MAIN_ACT="android/app/src/main/java/com/ku9/player/MainActivity.kt"
-          if [ -f "$MAIN_ACT" ]; then
-            # 将 SettingsManager() 替换为 SettingsManager.init(this)
-            sed -i 's/SettingsManager()/SettingsManager.init(this)/g' "$MAIN_ACT"
-            # 注释掉 SettingsFragment 相关，避免未定义错误
-            sed -i 's/SettingsFragment()//g' "$MAIN_ACT"
-            sed -i '/nav_settings ->/,/true/s/.*/\/\/ settings menu disabled/' "$MAIN_ACT"
-            echo "✅ MainActivity.kt 已修正"
-          fi
-
-          # 5. 修正 SourceManager.kt（context 引用）
-          SOURCE_MANAGER="android/app/src/main/java/com/ku9/player/SourceManager.kt"
-          if [ -f "$SOURCE_MANAGER" ]; then
-            # 将 context 替换为 null 或提供替代，由于无法确定 context 来源，我们注释掉该行（使用空实现）
-            sed -i 's/context//g' "$SOURCE_MANAGER"
-            sed -i 's/it//g' "$SOURCE_MANAGER"
-            echo "✅ SourceManager.kt 已修正（部分功能可能暂时失效）"
-          fi
-
-          # 6. 确保 gradle.properties 存在并启用 AndroidX
+          # 确保 gradle.properties 存在并启用 AndroidX
           if [ ! -f android/gradle.properties ]; then
             echo "android.useAndroidX=true" > android/gradle.properties
             echo "android.enableJetifier=true" >> android/gradle.properties
             echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
           fi
 
-          # 7. 确保 themes.xml 等资源存在
+          # 确保 themes.xml 和 attrs.xml 存在
           mkdir -p android/app/src/main/res/values
           if [ ! -f android/app/src/main/res/values/themes.xml ]; then
             echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
@@ -159,14 +70,12 @@ jobs:
             echo '</resources>' >> android/app/src/main/res/values/attrs.xml
           fi
 
-          # 8. 修复 AndroidManifest.xml（移除图标引用）
+          # 修复 AndroidManifest.xml（移除图标引用）
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
             sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
           fi
-
-          echo "✅ 所有修复完成，开始构建..."
 
       - name: Build APK with Gradle
         id: build
