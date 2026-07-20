@@ -15,9 +15,7 @@ object NetworkUtils {
 
     suspend fun fetchJson(url: String): String {
         return suspendCancellableCoroutine { continuation ->
-            val request = Request.Builder()
-                .url(url)
-                .build()
+            val request = Request.Builder().url(url).build()
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     continuation.resumeWithException(e)
@@ -25,14 +23,11 @@ object NetworkUtils {
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         if (!it.isSuccessful) {
-                            continuation.resumeWithException(IOException("Unexpected code ${it.code()}"))
+                            continuation.resumeWithException(IOException("Unexpected code ${it.code}"))
                         } else {
                             val body = it.body?.string()
-                            if (body != null) {
-                                continuation.resume(body)
-                            } else {
-                                continuation.resumeWithException(IOException("Response body is null"))
-                            }
+                            if (body != null) continuation.resume(body)
+                            else continuation.resumeWithException(IOException("Response body is null"))
                         }
                     }
                 }
