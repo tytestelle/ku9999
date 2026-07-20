@@ -8,14 +8,17 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class EPGFragment : Fragment() {
 
     private lateinit var rvEpg: RecyclerView
     private lateinit var tvChannelName: TextView
     private val epgManager = EPGManager()
+    private val mainActivity by lazy { activity as MainActivity }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -31,12 +34,17 @@ class EPGFragment : Fragment() {
 
         rvEpg.layoutManager = LinearLayoutManager(requireContext())
 
-        // 示例：加载当前频道的 EPG（需从 MainActivity 获取当前播放频道）
-        // 实际应通过接口传递，此处简化
-        val channel = (activity as? MainActivity)?.getSourceManager()?.channels?.firstOrNull()
+        // 获取当前选中的频道（示例取第一个）
+        val channel = mainActivity.getSourceManager().channels.firstOrNull()
         tvChannelName.text = channel?.name ?: "未选择频道"
-        val epgData = epgManager.loadEPG("https://example.com/epg.xml") // 替换真实地址
-        val adapter = EPGAdapter(epgData)
-        rvEpg.adapter = adapter
+
+        // 加载 EPG（支持多格式）
+        CoroutineScope(Dispatchers.IO).launch {
+            val epgData = epgManager.loadEPG(channel?.epgUrl ?: "")
+            withContext(Dispatchers.Main) {
+                val adapter = EPGAdapter(epgData)
+                rvEpg.adapter = adapter
+            }
+        }
     }
 }
