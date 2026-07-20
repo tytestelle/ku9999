@@ -29,25 +29,11 @@ android {
         jvmTarget = '17'
     }
 
-    // 关键：指定源码和资源路径为根目录
     sourceSets {
         main {
-            java.srcDirs = [
-                '../../src/main/java',  // 如果根目录下有 src/main/java 则用，否则用下面的
-                '../../data',
-                '../../parser',
-                '../../player',
-                '../../ui',
-                '../../utils',
-                '../../'  // 包含根目录下的 MainActivity.kt 等
-            ]
-            // 但根目录下没有 src/main/java，所以直接包含根目录
-            // 但上面的路径会导致重复，我们可以直接指定根目录
-            // 简化：指定根目录
-            // 但注意，根目录下还有其他文件，可能会被当作源码编译（如 build.gradle 等），所以要小心
-            // 更精确：只包含 .kt 文件所在的目录
-            // 我们可以把所有 .kt 文件放在一个目录下，但现在是分散的，所以最好移动文件。
-            // 鉴于时间，我们直接包含根目录，并在根目录下创建 res 目录
+            java.srcDirs = ['../../src/main/java']
+            res.srcDirs = ['../../src/main/res']
+            manifest.srcFile '../../src/main/AndroidManifest.xml'
         }
     }
 }
