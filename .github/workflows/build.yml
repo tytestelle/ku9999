@@ -25,12 +25,11 @@ jobs:
 
       - name: Prepare source and resources
         run: |
-          # 清理目标目录（避免循环复制）
+          # 清理并创建标准目录（包含完整包路径）
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
-          # 创建标准目录
-          mkdir -p android/app/src/main/java
+          mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/mipmap-hdpi
@@ -39,9 +38,9 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制所有 Kotlin 文件（排除 android 目录本身）
-          # 使用 rsync 或 find -prune，但更简单：只复制根目录下的 .kt 和子目录
-          # 复制根目录下的所有 .kt 文件（不包括 android/ 下的）
+          # 复制所有 Kotlin 文件到包目录（扁平化，所有类在同一包下）
+          echo "=== Copying Kotlin files ==="
+          # 复制根目录下所有 .kt（排除 android 目录）
           find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
           # 复制子目录中的 .kt（data, parser, player, ui, utils）
           for dir in data parser player ui utils; do
@@ -51,11 +50,15 @@ jobs:
           done
 
           # 复制布局文件
+          echo "=== Copying layout files ==="
           for layout in activity_main.xml item_channel.xml item_group.xml; do
-            [ -f "$layout" ] && cp "$layout" android/app/src/main/res/layout/
+            if [ -f "$layout" ]; then
+              cp "$layout" android/app/src/main/res/layout/
+            fi
           done
 
           # 创建资源文件
+          echo "=== Creating resource files ==="
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -103,18 +106,18 @@ jobs:
           </manifest>
           EOF
 
-          # 创建占位图标
+          # 创建空白的 ic_launcher 占位
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          # 验证
+          # 验证文件
           echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
           ls -la android/app/src/main/java/com/ku9/player/
 
-      - name: Build with Gradle 8.2
+      - name: Install Gradle 8.2 and build
         id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
