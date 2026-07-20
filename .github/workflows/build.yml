@@ -31,13 +31,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # ============ 生成完整的 Android 项目（保留原始 .kt，仅修补错误） ============
-      - name: Prepare source and resources
+      - name: Prepare Android project (minimal fixes)
         run: |
-          # 清理并创建标准目录
-          rm -rf android/app/src/main/java
-          rm -rf android/app/src/main/res
-          
+          # 创建必要的目录结构（如果不存在）
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
@@ -47,104 +43,43 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # ---------- 复制所有原始 Kotlin 文件（不覆盖） ----------
-          echo "=== Copying original Kotlin files ==="
-          find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
-          for dir in data parser player ui utils; do
-            if [ -d "$dir" ]; then
-              cp $dir/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-            fi
-          done
+          # 复制所有 .kt 文件（扁平化）
+          echo "Copying Kotlin files..."
+          find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
-          # ---------- 修正 NetworkUtils.kt：将 code() 改为 code ----------
-          NETWORK_UTILS="android/app/src/main/java/com/ku9/player/NetworkUtils.kt"
-          if [ -f "$NETWORK_UTILS" ]; then
-            sed -i 's/\.code()/.code/g' "$NETWORK_UTILS"
-            echo "Fixed NetworkUtils.kt"
-          fi
-
-          # ---------- 修正 SourceManager.kt：添加失败时的示例数据 ----------
-          SOURCE_MANAGER="android/app/src/main/java/com/ku9/player/SourceManager.kt"
-          if [ -f "$SOURCE_MANAGER" ]; then
-            # 在 catch 块中添加示例数据，确保界面有内容
-            sed -i '/catch (e: IOException)/a\            // 如果网络请求失败，使用示例数据展示界面\n            channels = listOf(\n                Channel("1", "CCTV-1", "http://example.com/1"),\n                Channel("2", "CCTV-2", "http://example.com/2"),\n                Channel("3", "CCTV-3", "http://example.com/3")\n            )\n            groups = listOf(\n                Group("g1", "央视", channels),\n                Group("g2", "卫视", emptyList())\n            )' "$SOURCE_MANAGER"
-            echo "Added fallback data to SourceManager.kt"
-          fi
-
-          # ---------- 复制布局文件 ----------
-          echo "=== Copying layout files ==="
+          # 复制布局文件（如果存在）
           for layout in activity_main.xml item_channel.xml item_group.xml; do
             if [ -f "$layout" ]; then
               cp "$layout" android/app/src/main/res/layout/
             fi
           done
 
-          # ---------- 创建资源文件（如果原始没有） ----------
-          echo "=== Creating resource files ==="
+          # ---------- 修补 NetworkUtils.kt（code() 改为 code） ----------
+          NETWORK="android/app/src/main/java/com/ku9/player/NetworkUtils.kt"
+          if [ -f "$NETWORK" ]; then
+            sed -i 's/\.code()/.code/g' "$NETWORK"
+            echo "Patched NetworkUtils.kt"
+          fi
+
+          # ---------- 创建缺失的资源文件（如果原始没有） ----------
           if [ ! -f android/app/src/main/res/values/colors.xml ]; then
-            cat > android/app/src/main/res/values/colors.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <color name="colorPrimary">#3F51B5</color>
-                <color name="colorPrimaryDark">#303F9F</color>
-                <color name="colorAccent">#FF4081</color>
-            </resources>
-            EOF
+            echo '<resources><color name="colorPrimary">#3F51B5</color><color name="colorPrimaryDark">#303F9F</color><color name="colorAccent">#FF4081</color></resources>' > android/app/src/main/res/values/colors.xml
           fi
-
           if [ ! -f android/app/src/main/res/values/strings.xml ]; then
-            cat > android/app/src/main/res/values/strings.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <string name="app_name">KU9 Player</string>
-            </resources>
-            EOF
+            echo '<resources><string name="app_name">KU9 Player</string></resources>' > android/app/src/main/res/values/strings.xml
           fi
-
           if [ ! -f android/app/src/main/res/values/themes.xml ]; then
-            cat > android/app/src/main/res/values/themes.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
-            </resources>
-            EOF
+            echo '<resources><style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" /></resources>' > android/app/src/main/res/values/themes.xml
           fi
-
-          # 如果原始没有 attrs.xml，创建一个（可能被引用）
+          # attrs.xml 可能被引用，创建空文件以防报错
           if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            cat > android/app/src/main/res/values/attrs.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <attr name="use_controller" format="boolean" />
-                <attr name="controller" format="boolean" />
-                <attr name="player" format="reference" />
-                <attr name="surface_type" format="enum">
-                    <enum name="surface_view" value="0" />
-                    <enum name="texture_view" value="1" />
-                    <enum name="spherical_view" value="2" />
-                    <enum name="video_decoder_gl_surface_view" value="3" />
-                </attr>
-                <attr name="resize_mode" format="enum">
-                    <enum name="fit" value="0" />
-                    <enum name="fixed_width" value="1" />
-                    <enum name="fixed_height" value="2" />
-                    <enum name="fill" value="3" />
-                    <enum name="zoom" value="4" />
-                </attr>
-            </resources>
-            EOF
+            echo '<resources></resources>' > android/app/src/main/res/values/attrs.xml
           fi
 
-          # ---------- 处理 AndroidManifest.xml ----------
-          # 如果原始存在，去除图标引用；否则创建
+          # ---------- 修正 AndroidManifest.xml（去除图标引用） ----------
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            # 移除 package 属性（警告）
-            sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
-            # 移除 icon 和 roundIcon
-            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' "$MANIFEST"
-            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
-          else
+          if [ ! -f "$MANIFEST" ]; then
+            # 创建默认 Manifest
             cat > "$MANIFEST" << 'EOF'
             <?xml version="1.0" encoding="utf-8"?>
             <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -164,9 +99,14 @@ jobs:
                 </application>
             </manifest>
             EOF
+          else
+            # 移除 package 属性和图标引用
+            sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
+            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' "$MANIFEST"
+            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
 
-          # ---------- 生成 Gradle 脚本 ----------
+          # ---------- 生成 Gradle 脚本（确保依赖齐全） ----------
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
           include ':app'
@@ -183,14 +123,12 @@ jobs:
                   classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
               }
           }
-
           allprojects {
               repositories {
                   google()
                   mavenCentral()
               }
           }
-
           task clean(type: Delete) {
               delete rootProject.buildDir
           }
@@ -203,7 +141,6 @@ jobs:
           android {
               namespace 'com.ku9.player'
               compileSdk 34
-
               defaultConfig {
                   applicationId 'com.ku9.player'
                   minSdk 21
@@ -211,7 +148,6 @@ jobs:
                   versionCode 1
                   versionName '1.0'
               }
-
               buildTypes {
                   debug {
                       minifyEnabled false
@@ -243,13 +179,8 @@ jobs:
 
           touch android/app/proguard-rules.pro
 
-          # 为缺失的图标创建占位（避免 Manifest 警告，但上面已移除引用）
-          # 无需创建，因为已移除
+          echo "Preparation completed."
 
-          echo "=== Directory structure under android/ ==="
-          find android -type f | sort
-
-      # ============ 构建 APK ============
       - name: Build APK with Gradle
         id: build
         run: |
@@ -257,19 +188,13 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          
-          echo "=== Starting build ==="
           gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
-          
           cp build.log ../build.log
-          
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
-          
-          echo "=== Searching for APK ==="
           APK_COUNT=$(find app/build -type f -name "*.apk" | wc -l)
           echo "Found $APK_COUNT APK(s)"
           find app/build -type f -name "*.apk" -ls
