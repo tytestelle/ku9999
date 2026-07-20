@@ -21,20 +21,22 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="2026-07-20"
             android:textSize="18sp"
-            android:gravity="center" />
+            android:gravity="center"
+            android:text="日期" />
 
         <Button
             android:id="@+id/next_day"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="后一天" />
+
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/epg_recycler"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:scrollbars="vertical" />
 
 </LinearLayout>
