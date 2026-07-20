@@ -31,10 +31,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # ============ 生成修正后的源代码 ============
-      - name: Generate fixed source code
+      # ============ 准备源代码（最小修改） ============
+      - name: Prepare source code
         run: |
-          # 清理目录
+          # 清理并创建目录
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
@@ -42,287 +42,27 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # 复制原始 .kt 文件（扁平化）
+          # 复制所有原始 Kotlin 文件（扁平化）
           find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
-          # ========== 覆盖关键文件为正确版本 ==========
-          cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
-          package com.ku9.player
+          # 统一包声明为 com.ku9.player（确保所有类在同一包下）
+          find android/app/src/main/java -name "*.kt" -exec sed -i 's/^package .*/package com.ku9.player/' {} \;
 
-          import android.os.Bundle
-          import android.widget.Toast
-          import androidx.appcompat.app.AppCompatActivity
-          import androidx.lifecycle.lifecycleScope
-          import androidx.recyclerview.widget.LinearLayoutManager
-          import androidx.recyclerview.widget.RecyclerView
-          import kotlinx.coroutines.launch
+          # 修正 NetworkUtils.kt 中的 code() 为 code
+          sed -i 's/\.code()/.code/g' android/app/src/main/java/com/ku9/player/NetworkUtils.kt
 
-          fun MainActivity.showToast(msg: String) {
-              Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-          }
+          # 如果存在重复类定义的问题，可以删除冗余文件，但我们保留所有
 
-          class MainActivity : AppCompatActivity() {
+          # ------------------- 资源文件（布局等） -------------------
+          # 复制原始布局文件（如果存在）
+          for layout in activity_main.xml item_channel.xml item_group.xml; do
+            if [ -f "$layout" ]; then
+              cp "$layout" android/app/src/main/res/layout/
+            fi
+          done
 
-              private lateinit var channelAdapter: ChannelAdapter
-              private lateinit var groupAdapter: GroupAdapter
-              private val sourceManager = SourceManager()
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-
-                  val rvChannels = findViewById<RecyclerView>(R.id.rv_channels)
-                  val rvGroups = findViewById<RecyclerView>(R.id.rv_groups)
-
-                  channelAdapter = ChannelAdapter { channel ->
-                      lifecycleScope.launch {
-                          showToast("点击频道: ${channel.name}")
-                      }
-                  }
-                  groupAdapter = GroupAdapter { group ->
-                      lifecycleScope.launch {
-                          showToast("点击分组: ${group.name}")
-                      }
-                  }
-
-                  rvChannels.layoutManager = LinearLayoutManager(this)
-                  rvChannels.adapter = channelAdapter
-                  rvGroups.layoutManager = LinearLayoutManager(this)
-                  rvGroups.adapter = groupAdapter
-
-                  lifecycleScope.launch {
-                      sourceManager.loadData()
-                      channelAdapter.setData(sourceManager.channels)
-                      groupAdapter.setData(sourceManager.groups)
-                  }
-              }
-          }
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/SourceManager.kt << 'EOF'
-          package com.ku9.player
-
-          import com.google.gson.Gson
-          import com.google.gson.reflect.TypeToken
-          import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.withContext
-          import java.io.IOException
-
-          class SourceManager {
-              var channels: List<Channel> = emptyList()
-              var groups: List<Group> = emptyList()
-
-              private val gson = Gson()
-
-              suspend fun loadData() = withContext(Dispatchers.IO) {
-                  try {
-                      val json = NetworkUtils.fetchJson("https://example.com/source.json")
-                      val type = object : TypeToken<Map<String, List<Any>>>() {}.type
-                      val result: Map<String, List<Any>> = gson.fromJson(json, type)
-
-                      val channelList = result["channels"]?.mapNotNull {
-                          try { gson.fromJson(gson.toJson(it), Channel::class.java) } catch (e: Exception) { null }
-                      } ?: emptyList()
-                      val groupList = result["groups"]?.mapNotNull {
-                          try { gson.fromJson(gson.toJson(it), Group::class.java) } catch (e: Exception) { null }
-                      } ?: emptyList()
-
-                      channels = channelList
-                      groups = groupList
-                  } catch (e: IOException) {
-                      e.printStackTrace()
-                  }
-              }
-          }
-          EOF
-
-          # 修正 NetworkUtils.kt（使用 .code 属性而非 .code()）
-          cat > android/app/src/main/java/com/ku9/player/NetworkUtils.kt << 'EOF'
-          package com.ku9.player
-
-          import kotlinx.coroutines.suspendCancellableCoroutine
-          import okhttp3.Call
-          import okhttp3.Callback
-          import okhttp3.OkHttpClient
-          import okhttp3.Request
-          import okhttp3.Response
-          import java.io.IOException
-          import kotlin.coroutines.resume
-          import kotlin.coroutines.resumeWithException
-
-          object NetworkUtils {
-              private val client = OkHttpClient()
-
-              suspend fun fetchJson(url: String): String {
-                  return suspendCancellableCoroutine { continuation ->
-                      val request = Request.Builder().url(url).build()
-                      client.newCall(request).enqueue(object : Callback {
-                          override fun onFailure(call: Call, e: IOException) {
-                              continuation.resumeWithException(e)
-                          }
-                          override fun onResponse(call: Call, response: Response) {
-                              response.use {
-                                  if (!it.isSuccessful) {
-                                      continuation.resumeWithException(IOException("Unexpected code ${it.code}"))
-                                  } else {
-                                      val body = it.body?.string()
-                                      if (body != null) continuation.resume(body)
-                                      else continuation.resumeWithException(IOException("Response body is null"))
-                                  }
-                              }
-                          }
-                      })
-                  }
-              }
-          }
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/ChannelAdapter.kt << 'EOF'
-          package com.ku9.player
-
-          import android.view.LayoutInflater
-          import android.view.View
-          import android.view.ViewGroup
-          import android.widget.TextView
-          import androidx.recyclerview.widget.RecyclerView
-
-          class ChannelAdapter(private val onItemClick: (Channel) -> Unit) :
-              RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
-              private var items: List<Channel> = emptyList()
-
-              fun setData(data: List<Channel>) {
-                  items = data
-                  notifyDataSetChanged()
-              }
-
-              override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                  val view = LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
-                  return ViewHolder(view)
-              }
-
-              override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                  val item = items[position]
-                  holder.textView.text = item.name
-                  holder.itemView.setOnClickListener { onItemClick(item) }
-              }
-
-              override fun getItemCount() = items.size
-
-              class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-                  val textView: TextView = view.findViewById(R.id.tv_channel_name)
-              }
-          }
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/GroupAdapter.kt << 'EOF'
-          package com.ku9.player
-
-          import android.view.LayoutInflater
-          import android.view.View
-          import android.view.ViewGroup
-          import android.widget.TextView
-          import androidx.recyclerview.widget.RecyclerView
-
-          class GroupAdapter(private val onItemClick: (Group) -> Unit) :
-              RecyclerView.Adapter<GroupAdapter.ViewHolder>() {
-              private var items: List<Group> = emptyList()
-
-              fun setData(data: List<Group>) {
-                  items = data
-                  notifyDataSetChanged()
-              }
-
-              override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-                  val view = LayoutInflater.from(parent.context).inflate(R.layout.item_group, parent, false)
-                  return ViewHolder(view)
-              }
-
-              override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-                  val item = items[position]
-                  holder.textView.text = item.name
-                  holder.itemView.setOnClickListener { onItemClick(item) }
-              }
-
-              override fun getItemCount() = items.size
-
-              class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-                  val textView: TextView = view.findViewById(R.id.tv_group_name)
-              }
-          }
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/Channel.kt << 'EOF'
-          package com.ku9.player
-
-          data class Channel(val id: String = "", val name: String = "", val url: String = "")
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/Group.kt << 'EOF'
-          package com.ku9.player
-
-          data class Group(val id: String = "", val name: String = "", val channels: List<Channel> = emptyList())
-          EOF
-
-          cat > android/app/src/main/java/com/ku9/player/PlayerManager.kt << 'EOF'
-          package com.ku9.player
-
-          class PlayerManager {
-              // placeholder
-          }
-          EOF
-
-          # ========== 删除有问题的解析器文件 ==========
-          rm -f android/app/src/main/java/com/ku9/player/M3UParser.kt
-          rm -f android/app/src/main/java/com/ku9/player/ParserManager.kt
-          rm -f android/app/src/main/java/com/ku9/player/TXTParser.kt
-
-          # ------------------- 布局文件 -------------------
-          cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical">
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="KU9 Player"
-                  android:textSize="20sp"
-                  android:layout_gravity="center" />
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/rv_channels"
-                  android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1" />
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/rv_groups"
-                  android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1" />
-          </LinearLayout>
-          EOF
-
-          cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/tv_channel_name"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:padding="16dp"
-              android:textSize="16sp" />
-          EOF
-
-          cat > android/app/src/main/res/layout/item_group.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/tv_group_name"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:padding="16dp"
-              android:textSize="16sp" />
-          EOF
-
-          # ------------------- 资源文件 -------------------
+          # 如果没有布局，则创建简单占位（但您的仓库应该有）
+          # 创建基本资源文件（覆盖，确保存在）
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -346,48 +86,59 @@ jobs:
           </resources>
           EOF
 
-          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <attr name="use_controller" format="boolean" />
-              <attr name="controller" format="boolean" />
-              <attr name="player" format="reference" />
-              <attr name="surface_type" format="enum">
-                  <enum name="surface_view" value="0" />
-                  <enum name="texture_view" value="1" />
-                  <enum name="spherical_view" value="2" />
-                  <enum name="video_decoder_gl_surface_view" value="3" />
-              </attr>
-              <attr name="resize_mode" format="enum">
-                  <enum name="fit" value="0" />
-                  <enum name="fixed_width" value="1" />
-                  <enum name="fixed_height" value="2" />
-                  <enum name="fill" value="3" />
-                  <enum name="zoom" value="4" />
-              </attr>
-          </resources>
-          EOF
+          # 如果 attrs.xml 不存在，创建一个（可能被布局引用）
+          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
+            cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <resources>
+                <attr name="use_controller" format="boolean" />
+                <attr name="controller" format="boolean" />
+                <attr name="player" format="reference" />
+                <attr name="surface_type" format="enum">
+                    <enum name="surface_view" value="0" />
+                    <enum name="texture_view" value="1" />
+                    <enum name="spherical_view" value="2" />
+                    <enum name="video_decoder_gl_surface_view" value="3" />
+                </attr>
+                <attr name="resize_mode" format="enum">
+                    <enum name="fit" value="0" />
+                    <enum name="fixed_width" value="1" />
+                    <enum name="fixed_height" value="2" />
+                    <enum name="fill" value="3" />
+                    <enum name="zoom" value="4" />
+                </attr>
+            </resources>
+            EOF
+          fi
 
-          # ------------------- AndroidManifest.xml（无图标引用） -------------------
-          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:allowBackup="true"
-                  android:label="@string/app_name"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.KU9Player"
-                  android:usesCleartextTraffic="true">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+          # ------------------- AndroidManifest.xml（移除图标引用） -------------------
+          # 如果原始有图标，则移除
+          if [ -f android/app/src/main/AndroidManifest.xml ]; then
+            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
+            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
+            sed -i 's/ package="com\.ku9\.player"//g' android/app/src/main/AndroidManifest.xml
+          else
+            # 如果没有，创建最小版本
+            cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+                <uses-permission android:name="android.permission.INTERNET" />
+                <application
+                    android:allowBackup="true"
+                    android:label="@string/app_name"
+                    android:supportsRtl="true"
+                    android:theme="@style/Theme.KU9Player"
+                    android:usesCleartextTraffic="true">
+                    <activity android:name=".MainActivity" android:exported="true">
+                        <intent-filter>
+                            <action android:name="android.intent.action.MAIN" />
+                            <category android:name="android.intent.category.LAUNCHER" />
+                        </intent-filter>
+                    </activity>
+                </application>
+            </manifest>
+            EOF
+          fi
 
           # ------------------- Gradle 脚本 -------------------
           cat > android/settings.gradle << 'EOF'
@@ -461,12 +212,13 @@ jobs:
               implementation 'com.google.code.gson:gson:2.10.1'
               implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
               implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
+              // 如果还需要其他库，请添加
           }
           EOF
 
           touch android/app/proguard-rules.pro
 
-          echo "=== All files generated successfully ==="
+          echo "=== Source code prepared ==="
           find android -type f | sort
 
       # ============ 构建 APK ============
