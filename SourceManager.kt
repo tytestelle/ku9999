@@ -7,7 +7,6 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 class SourceManager {
-    // 公开可变的列表，便于外部更新
     var channels: List<Channel> = emptyList()
     var groups: List<Group> = emptyList()
 
@@ -15,30 +14,32 @@ class SourceManager {
 
     suspend fun loadData() = withContext(Dispatchers.IO) {
         try {
-            // 请替换为实际的 API 地址
+            // 这里替换为你的真实源地址，例如 M3U 或 JSON
             val json = NetworkUtils.fetchJson("https://example.com/source.json")
-            // 假设返回格式为 { "channels": [...], "groups": [...] }
             val type = object : TypeToken<Map<String, List<Any>>>() {}.type
             val result: Map<String, List<Any>> = gson.fromJson(json, type)
 
-            // 解析 channels（假设 Channel 有 id, name, url）
             val channelList = result["channels"]?.mapNotNull {
-                try {
-                    gson.fromJson(gson.toJson(it), Channel::class.java)
-                } catch (e: Exception) { null }
+                try { gson.fromJson(gson.toJson(it), Channel::class.java) } catch (e: Exception) { null }
             } ?: emptyList()
-
-            // 解析 groups（假设 Group 有 id, name, channels）
             val groupList = result["groups"]?.mapNotNull {
-                try {
-                    gson.fromJson(gson.toJson(it), Group::class.java)
-                } catch (e: Exception) { null }
+                try { gson.fromJson(gson.toJson(it), Group::class.java) } catch (e: Exception) { null }
             } ?: emptyList()
 
             channels = channelList
             groups = groupList
         } catch (e: IOException) {
             e.printStackTrace()
+            // 加载失败时提供示例数据，让界面有内容
+            channels = listOf(
+                Channel("1", "CCTV-1", "http://example.com/1"),
+                Channel("2", "CCTV-2", "http://example.com/2"),
+                Channel("3", "CCTV-3", "http://example.com/3")
+            )
+            groups = listOf(
+                Group("g1", "央视", channels),
+                Group("g2", "卫视", emptyList())
+            )
         }
     }
 }
