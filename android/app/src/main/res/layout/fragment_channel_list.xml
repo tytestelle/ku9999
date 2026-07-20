@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-
+    android:layout_height="match_parent">
     <Spinner
         android:id="@+id/spinner_groups"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
-
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/search_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:queryHint="搜索频道" />
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_channels"
         android:layout_width="match_parent"
