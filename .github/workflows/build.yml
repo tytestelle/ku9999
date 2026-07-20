@@ -35,17 +35,17 @@ jobs:
         run: |
           echo "🔧 开始自动修复项目结构..."
 
-          # 1. 创建目标目录
+          # 创建目标目录
           mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # 2. 复制所有 Kotlin 文件到目标包路径（扁平化）
+          # 复制所有 Kotlin 文件
           echo "📦 复制 Kotlin 文件..."
           find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
-          # 3. 补全 activity_main.xml
+          # 生成 activity_main.xml
           cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -66,7 +66,7 @@ jobs:
           </LinearLayout>
           EOF
 
-          # 4. 补全 fragment_channel_list.xml
+          # 生成 fragment_channel_list.xml
           cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -89,7 +89,7 @@ jobs:
           </LinearLayout>
           EOF
 
-          # 5. 补全 item_channel.xml
+          # 生成 item_channel.xml
           cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -117,7 +117,7 @@ jobs:
           </LinearLayout>
           EOF
 
-          # 6. 创建 bottom_nav_menu.xml
+          # 生成 bottom_nav_menu.xml
           cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -136,7 +136,7 @@ jobs:
           </menu>
           EOF
 
-          # 7. 创建 attrs.xml
+          # 生成 attrs.xml
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -159,7 +159,25 @@ jobs:
           </resources>
           EOF
 
-          # 8. 修复 AndroidManifest.xml
+          # 生成 strings.xml
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
+
+          # 生成 colors.xml
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
+
+          # 修复 AndroidManifest.xml（移除图标引用）
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
@@ -168,28 +186,7 @@ jobs:
             echo "✅ AndroidManifest.xml 已修复"
           fi
 
-          # 9. 补充 strings.xml 和 colors.xml（如果缺失）
-          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
-            cat > android/app/src/main/res/values/strings.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <string name="app_name">KU9 Player</string>
-            </resources>
-            EOF
-          fi
-
-          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
-            cat > android/app/src/main/res/values/colors.xml << 'EOF'
-            <?xml version="1.0" encoding="utf-8"?>
-            <resources>
-                <color name="colorPrimary">#3F51B5</color>
-                <color name="colorPrimaryDark">#303F9F</color>
-                <color name="colorAccent">#FF4081</color>
-            </resources>
-            EOF
-          fi
-
-          # 10. 创建 gradle.properties（启用 AndroidX）
+          # 生成 gradle.properties
           cat > android/gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
@@ -201,7 +198,6 @@ jobs:
       - name: Build APK with Gradle
         id: build
         run: |
-          # 下载并配置 Gradle 8.2
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
@@ -218,7 +214,6 @@ jobs:
 
           echo "✅ Build successful"
 
-          # 查找 APK
           cd ..
           mkdir -p apk_output
           find android -name "*.apk" -type f -exec cp {} apk_output/ \;
