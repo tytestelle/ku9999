@@ -23,13 +23,14 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Copy sources to standard location
+      - name: Prepare source and resources
         run: |
-          # 完全重建标准目录
+          # 清理目标目录（避免循环复制）
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
-          mkdir -p android/app/src/main/java/com/ku9/player
+          # 创建标准目录
+          mkdir -p android/app/src/main/java
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/mipmap-hdpi
@@ -38,22 +39,23 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制所有 .kt 文件（包括子目录中的）
-          echo "=== Copying Kotlin files ==="
-          find . -name "*.kt" -exec cp --parents {} android/app/src/main/java/com/ku9/player/ \;
-          # 如果 find 不支持 --parents，用下面的循环替代
-          for f in $(find . -name "*.kt"); do
-            cp "$f" "android/app/src/main/java/com/ku9/player/"
+          # 复制所有 Kotlin 文件（排除 android 目录本身）
+          # 使用 rsync 或 find -prune，但更简单：只复制根目录下的 .kt 和子目录
+          # 复制根目录下的所有 .kt 文件（不包括 android/ 下的）
+          find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
+          # 复制子目录中的 .kt（data, parser, player, ui, utils）
+          for dir in data parser player ui utils; do
+            if [ -d "$dir" ]; then
+              cp $dir/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
+            fi
           done
 
           # 复制布局文件
-          echo "=== Copying layout files ==="
-          [ -f activity_main.xml ] && cp activity_main.xml android/app/src/main/res/layout/
-          [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
-          [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
+          for layout in activity_main.xml item_channel.xml item_group.xml; do
+            [ -f "$layout" ] && cp "$layout" android/app/src/main/res/layout/
+          done
 
-          # 创建资源文件（如果缺失）
-          echo "=== Creating resource files ==="
+          # 创建资源文件
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -101,18 +103,16 @@ jobs:
           </manifest>
           EOF
 
-          # 创建空白的 ic_launcher
+          # 创建占位图标
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          # 验证文件
+          # 验证
           echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
           ls -la android/app/src/main/java/com/ku9/player/
-          echo "=== MainActivity.kt content (first 10 lines) ==="
-          head -n 10 android/app/src/main/java/com/ku9/player/MainActivity.kt || echo "MainActivity.kt not found!"
 
       - name: Build with Gradle 8.2
         id: build
