@@ -21,6 +21,19 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // 指向根目录的源码和资源
+    sourceSets {
+        main {
+            // 根目录及子目录都包含
+            java.srcDirs = ['../../']
+            // 资源文件在根目录（因为 layout 等子目录已经在根目录下）
+            res.srcDirs = ['../../res']
+            // 清单文件
+            manifest.srcFile '../../AndroidManifest.xml'
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
