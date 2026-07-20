@@ -1,70 +1,52 @@
 package com.ku9.player
 
-import org.xmlpull.v1.XmlPullParserFactory
-import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class EPGProgram(val title: String, val startTime: Date, val endTime: Date, val desc: String = "")
-
+/**
+ * EPG管理器：支持XMLTV格式，7天回看（通过日期偏移）
+ */
 class EPGManager {
-    suspend fun loadEPG(url: String): List<EPGProgram> {
-        return if (url.isEmpty()) {
-            // 模拟数据
-            listOf(
-                EPGProgram("新闻联播", Date(), Date(System.currentTimeMillis() + 30*60*1000), "今日新闻")
-            )
-        } else {
+
+    // 加载指定日期的EPG（offsetDays: 0今天，-1昨天，+1明天...）
+    suspend fun loadEPG(xmlUrl: String, channelId: String, offsetDays: Int = 0): List<EpgProgram> =
+        withContext(Dispatchers.IO) {
             try {
-                val inputStream = URL(url).openStream()
-                parseXML(inputStream)
+                val xml = URL(xmlUrl).readText()
+                parseXMLTV(xml, channelId, offsetDays)
             } catch (e: Exception) {
-                e.printStackTrace()
                 emptyList()
             }
         }
-    }
 
-    private fun parseXML(inputStream: InputStream): List<EPGProgram> {
-        val programs = mutableListOf<EPGProgram>()
-        val factory = XmlPullParserFactory.newInstance()
-        val parser = factory.newPullParser()
-        parser.setInput(inputStream, "UTF-8")
-        var eventType = parser.eventType
-        var currentTitle = ""
-        var currentStart = ""
-        var currentEnd = ""
-        var currentDesc = ""
-        while (eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-            when (eventType) {
-                org.xmlpull.v1.XmlPullParser.START_TAG -> {
-                    when (parser.name) {
-                        "programme" -> {
-                            currentStart = parser.getAttributeValue(null, "start")
-                            currentEnd = parser.getAttributeValue(null, "stop")
-                        }
-                        "title" -> currentTitle = parser.nextText()
-                        "desc" -> currentDesc = parser.nextText()
-                    }
-                }
-                org.xmlpull.v1.XmlPullParser.END_TAG -> {
-                    if (parser.name == "programme") {
-                        val sdf = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
-                        val start = sdf.parse(currentStart.replace(" ", "+"))
-                        val end = sdf.parse(currentEnd.replace(" ", "+"))
-                        start?.let { end?.let {
-                            programs.add(EPGProgram(currentTitle, it, end, currentDesc))
-                        } }
-                        currentTitle = ""
-                        currentStart = ""
-                        currentEnd = ""
-                        currentDesc = ""
-                    }
-                }
+    private fun parseXMLTV(xml: String, channelId: String, offsetDays: Int): List<EpgProgram> {
+        val list = mutableListOf<EpgProgram>()
+        // 匹配指定频道的所有programme节点
+        val regex = Regex("<programme[^>]*channel=\"$channelId\"[^>]*>.*?</programme>", RegexOption.DOTALL)
+        val sdf = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
+
+        // 计算目标日期的起始和结束时间戳（用于过滤）
+        val calendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offsetDays) }
+        val dayStart = calendar.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
+        val dayEnd = dayStart + 24 * 60 * 60 * 1000
+
+        regex.findAll(xml).forEach { match ->
+            val block = match.value
+            val title = Regex("<title>(.*?)</title>").find(block)?.groupValues?.get(1) ?: ""
+            val start = Regex("start=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
+            val end = Regex("end=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
+
+            val startTime = try { sdf.parse(start.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
+            val endTime = try { sdf.parse(end.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
+
+            // 只保留当天的节目
+            if (startTime >= dayStart && startTime < dayEnd) {
+                list.add(EpgProgram(title, startTime, endTime, ""))
             }
-            eventType = parser.next()
         }
-        return programs
+        return list.sortedBy { it.startTime }
     }
 }
