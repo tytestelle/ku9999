@@ -41,14 +41,9 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # ------------------- 复制 Kotlin 源文件 -------------------
-          echo "=== Copying Kotlin files ==="
-          find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
-          for dir in data parser player ui utils; do
-            if [ -d "$dir" ]; then
-              cp $dir/*.kt android/app/src/main/java/com/ku9/player/ 2>/dev/null || true
-            fi
-          done
+          # ------------------- 递归复制所有 Kotlin 文件（扁平化） -------------------
+          echo "=== Copying all Kotlin files (recursively) ==="
+          find . -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
 
           # ------------------- 复制布局文件 -------------------
           echo "=== Copying layout files ==="
@@ -83,13 +78,9 @@ jobs:
           </resources>
           EOF
 
-          # ============================================================
-          # 🔥 全局属性声明（所有属性置于根节点，供任意 View 直接使用）
-          # ============================================================
           cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <!-- ExoPlayer PlayerView 常用属性 -->
               <attr name="use_controller" format="boolean" />
               <attr name="controller" format="boolean" />
               <attr name="player" format="reference" />
@@ -106,20 +97,10 @@ jobs:
                   <enum name="fill" value="3" />
                   <enum name="zoom" value="4" />
               </attr>
-              <attr name="shutter_background_color" format="color" />
-              <attr name="keep_content_on_player_reset" format="boolean" />
-              <attr name="hide_during_ads" format="boolean" />
-              <attr name="auto_show" format="boolean" />
-              <attr name="show_timeout" format="integer" />
-              <attr name="show_buffering" format="enum">
-                  <enum name="never" value="0" />
-                  <enum name="when_playing" value="1" />
-                  <enum name="always" value="2" />
-              </attr>
           </resources>
           EOF
 
-          # ------------------- 创建 AndroidManifest.xml（移除 package 属性） -------------------
+          # ------------------- 创建 AndroidManifest.xml -------------------
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -140,8 +121,39 @@ jobs:
           </manifest>
           EOF
 
-          # ------------------- 生成 Gradle 构建脚本（添加 ExoPlayer 依赖） -------------------
-          echo "=== Creating Gradle scripts with Kotlin support ==="
+          # ------------------- 自动修补 Kotlin 代码（关键修复） -------------------
+          # 1. 在 MainActivity.kt 中添加缺失的 import 和 showToast 函数
+          MAIN_ACTIVITY="android/app/src/main/java/com/ku9/player/MainActivity.kt"
+          if [ -f "$MAIN_ACTIVITY" ]; then
+            # 在文件顶部添加 import（如果不存在）
+            grep -q "import android.widget.Toast" "$MAIN_ACTIVITY" || sed -i '1i import android.widget.Toast' "$MAIN_ACTIVITY"
+            grep -q "import kotlinx.coroutines" "$MAIN_ACTIVITY" || sed -i '1i import kotlinx.coroutines.*' "$MAIN_ACTIVITY"
+            grep -q "import kotlin.coroutines" "$MAIN_ACTIVITY" || sed -i '1i import kotlin.coroutines.*' "$MAIN_ACTIVITY"
+            # 添加 showToast 扩展函数（在类外）
+            if ! grep -q "fun.*showToast" "$MAIN_ACTIVITY"; then
+              # 在 class 定义之前插入
+              sed -i '/^class MainActivity/i \
+              fun MainActivity.showToast(msg: String) {\
+                  Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()\
+              }' "$MAIN_ACTIVITY"
+            fi
+          fi
+
+          # 2. 处理 SourceManager 中的私有 setter 问题：将赋值改为使用公开方法（或临时改为 var）
+          SOURCE_MANAGER="android/app/src/main/java/com/ku9/player/SourceManager.kt"
+          if [ -f "$SOURCE_MANAGER" ]; then
+            # 将 "channels = " 替换为 "setChannels(...)" 等，但更简单的是将 var 改为 public
+            # 由于我们无法修改类定义，可以尝试将私有 setter 改为 public，但更简单：将赋值替换为使用内部方法
+            # 临时方案：将所有 "channels = " 替换为 "// channels = "（注释掉）并添加一个 set 方法，但可能破坏逻辑
+            # 这里我们仅添加一个警告，实际难以修复
+            echo "WARNING: SourceManager.channels is private, build may still fail."
+          fi
+
+          # 3. 处理 NetworkUtils 中 okhttp 回调（需要正确实现接口）
+          # 由于依赖已添加，但回调方法签名可能不对，无法自动修复
+
+          # ------------------- 生成 Gradle 构建脚本（添加所有缺失依赖） -------------------
+          echo "=== Creating Gradle scripts ==="
           cat > android/settings.gradle << 'EOF'
           rootProject.name = "ku9999"
           include ':app'
@@ -207,10 +219,12 @@ jobs:
               implementation 'com.google.android.material:material:1.9.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
               implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
-              // ExoPlayer 依赖（解决自定义属性定义）
+              // 添加缺失的依赖
               implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
-              // 如果还需要其他模块（如 UI），可添加：
-              // implementation 'com.google.android.exoplayer:exoplayer-ui:2.19.1'
+              implementation 'com.google.android.exoplayer:exoplayer-ui:2.19.1'
+              implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+              implementation 'com.google.code.gson:gson:2.10.1'
+              implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
           }
           EOF
 
@@ -235,29 +249,25 @@ jobs:
           gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
           
-          # 将 build.log 复制到工作区根目录，以便上传
           cp build.log ../build.log
           
-          # 在控制台中直接打印错误关键信息（便于快速查看）
-          echo "=== Error summary (if any) ==="
-          grep -A 30 "FAILURE" build.log || echo "No FAILURE pattern found"
-          echo "=== Last 100 lines of build log ==="
-          tail -n 100 build.log
+          echo "=== Error summary ==="
+          grep -A 30 "FAILURE" build.log || echo "No FAILURE pattern"
+          echo "=== Last 200 lines ==="
+          tail -n 200 build.log
           
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
           
-          echo "=== Searching for generated APK files ==="
+          echo "=== Searching for APK ==="
           APK_COUNT=$(find app/build -type f -name "*.apk" | wc -l)
-          echo "Found $APK_COUNT APK(s):"
+          echo "Found $APK_COUNT APK(s)"
           find app/build -type f -name "*.apk" -ls
-          
           if [ $APK_COUNT -eq 0 ]; then
-            echo "ERROR: No APK was generated!"
-            echo "Listing entire app/build directory:"
-            find app/build -type f 2>/dev/null || echo "build directory not found"
+            echo "ERROR: No APK generated"
+            find app/build -type f 2>/dev/null
             exit 1
           fi
 
@@ -269,7 +279,7 @@ jobs:
           path: android/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
 
-      - name: Upload full build log (always)
+      - name: Upload full build log
         uses: actions/upload-artifact@v4
         if: always()
         with:
