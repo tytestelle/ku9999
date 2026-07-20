@@ -31,43 +31,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Ensure all source files exist and fix issues
+      - name: Prepare resources, gradle.properties and fix manifest
         run: |
-          # 确保目录存在
-          mkdir -p android/app/src/main/java/com/ku9/player
-          mkdir -p android/app/src/main/res/values
-          mkdir -p android/app/src/main/res/layout
-
-          # 检查并补齐缺失的 Kotlin 文件（如果不存在则创建占位）
-          # 注意：这里我们只保证编译通过，不保证功能完整
-          # 但为了功能完整，你应该将之前提供的所有 .kt 文件放入仓库
-
-          # 修复已知的 NetworkUtils.kt 中的 code() 问题
-          if [ -f android/app/src/main/java/com/ku9/player/NetworkUtils.kt ]; then
-            sed -i 's/\.code()/.code/g' android/app/src/main/java/com/ku9/player/NetworkUtils.kt
-          fi
-
-          # 如果 MainActivity.kt 不存在，创建一个最基本的版本
-          if [ ! -f android/app/src/main/java/com/ku9/player/MainActivity.kt ]; then
-            cat > android/app/src/main/java/com/ku9/player/MainActivity.kt << 'EOF'
-          package com.ku9.player
-          import android.os.Bundle
-          import android.widget.TextView
-          import androidx.appcompat.app.AppCompatActivity
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-                  val tv = findViewById<TextView>(R.id.tv_hello)
-                  tv?.text = "KU9 Player (Basic)"
-              }
-          }
+          # 创建 gradle.properties（启用 AndroidX）
+          cat > android/gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
           EOF
-          fi
 
-          # 创建 attrs.xml（如果不存在）
-          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          # 确保 attrs.xml 存在
+          mkdir -p android/app/src/main/res/values
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <attr name="use_controller" format="boolean" />
@@ -86,83 +61,33 @@ jobs:
                   <enum name="fill" value="3" />
                   <enum name="zoom" value="4" />
               </attr>
+              <attr name="shutter_background_color" format="color" />
+              <attr name="keep_content_on_player_reset" format="boolean" />
+              <attr name="hide_during_ads" format="boolean" />
+              <attr name="auto_show" format="boolean" />
+              <attr name="show_timeout" format="integer" />
+              <attr name="show_buffering" format="enum">
+                  <enum name="never" value="0" />
+                  <enum name="when_playing" value="1" />
+                  <enum name="always" value="2" />
+              </attr>
           </resources>
           EOF
-          fi
 
-          # 修复 AndroidManifest.xml（移除图标引用）
+          # 修复 AndroidManifest.xml（移除图标引用和 package 属性）
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' "$MANIFEST"
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
-          else
-            # 如果不存在则创建基本版本
-            cat > "$MANIFEST" << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:allowBackup="true"
-                  android:label="KU9 Player"
-                  android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.Light"
-                  android:usesCleartextTraffic="true">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
           fi
 
-          # 如果有 activity_main.xml 但缺少 TextView 的 id，则添加
-          if [ -f android/app/src/main/res/layout/activity_main.xml ]; then
-            if ! grep -q "tv_hello" android/app/src/main/res/layout/activity_main.xml; then
-              echo "activity_main.xml 缺少 tv_hello，将创建基础布局"
-              cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:gravity="center">
-              <TextView
-                  android:id="@+id/tv_hello"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="KU9 Player"
-                  android:textSize="24sp" />
-          </LinearLayout>
-          EOF
-            fi
-          else
-            # 如果 activity_main.xml 不存在，创建
-            cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:gravity="center">
-              <TextView
-                  android:id="@+id/tv_hello"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="KU9 Player"
-                  android:textSize="24sp" />
-          </LinearLayout>
-          EOF
-          fi
-
-          echo "✅ Source and resource preparation complete"
+          echo "✅ Preparation done."
 
       - name: Build APK with Gradle
         id: build
         run: |
+          # 下载并配置 Gradle 8.2
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
@@ -174,14 +99,12 @@ jobs:
 
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "❌ Gradle build failed with exit code $BUILD_STATUS"
-            # 输出错误摘要以帮助诊断
-            echo "=== Error Summary ==="
-            grep -A 30 "FAILURE" build.log || true
             exit $BUILD_STATUS
           fi
 
           echo "✅ Build successful"
 
+          # 查找 APK
           cd ..
           mkdir -p apk_output
           find android -name "*.apk" -type f -exec cp {} apk_output/ \;
