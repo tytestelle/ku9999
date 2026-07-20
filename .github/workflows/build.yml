@@ -31,65 +31,138 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Generate complete source code and resources
+      - name: Fix resources and build
         run: |
-          set -e
-          echo "🚀 生成完整的项目源码和资源..."
+          echo "🔧 修复资源文件..."
 
-          # 创建所有目录
-          mkdir -p android/app/src/main/java/com/ku9/player
+          # 创建必要的资源目录
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # ---------- 写入所有 Kotlin 文件（使用 base64 解码） ----------
-          # 1. MainActivity.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKaW1wb3J0IGFuZHJvaWQub3MuQnVuZGxlCmltcG9ydCBhbmRyb2lkLndpZGdldC5Ub2FzdAppbXBvcnQgYW5kcm9pZC5hcHAuQXBwQ29tcGF0QWN0aXZpdHkKaW1wb3J0IGFuZHJvaWQubGlmZWN5Y2xlLmxpZmVjeWNsZVNjb3BlCmltcG9ydCBhbmRyb2lkLngucmVjeWNsZXJ2aWV3LmxpbmVhckxheW91dE1hbmFnZXIKaW1wb3J0IGFuZHJvaWQueC5yZWN5Y2xldmlldy5SZWN5Y2xlclZpZXcKaW1wb3J0IGtvdGxpbnguY29yb3V0aW5lcy5sYXVuY2gKCmZ1biBNYWluQWN0aXZpdHkuc2hvd1RvYXN0KG1zZzogU3RyaW5nKSB7CiAgICBUb2FzdC5tYWtlVGhpcyh0aGlzLCBtc2csIFRvYXN0Lmxlbmd0aF9TSE9SVCkuc2hvdygpCn0KCmNsYXNzIE1haW5BY3Rpdml0eSA6IEFwcENvbXBhdEFjdGl2aXR5KCkgewoKICAgIHByaXZhdGUgbGF0ZWluaXQgdmFyIGNoYW5uZWxBZGFwdGVyOiBDaGFubmVsQWRhcHRlcgogICAgcHJpdmF0ZSBsYXRlaW5pdCB2YXIgZ3JvdXBBZGFwdGVyOiBHcm91cEFkYXB0ZXIKICAgIHByaXZhdGUgdmFsIHNvdXJjZU1hbmFnZXIgPSBTb3VyY2VNYW5hZ2VyKCkKCiAgICBvdmVycmlkZSBmdW4gb25DcmVhdGUoc2F2ZWRJbnN0YW5jZVN0YXRlOiBCdW5kbGU/KSB7CiAgICAgICAgc3VwZXIub25DcmVhdGUoc2F2ZWRJbnN0YW5jZVN0YXRlKQogICAgICAgIHNldENvbnRlbnRWaWV3KFIubGF5b3V0LmFjdGl2aXR5X21haW4pCgogICAgICAgIHZhbCBydkNoYW5uZWxzID0gZmluZFZpZXdCeUlkPFJlY3ljbGVyVmlldz4oUi5pZC5ydl9jaGFubmVscykKICAgICAgICB2YWwgcnZHcm91cHMgPSBmaW5kVmlld0J5SWQ8UmVjeWNsZXJWaWV3PihSLmlkLnJ2X2dyb3VwcykKCiAgICAgICAgY2hhbm5lbEFkYXB0ZXIgPSBDaGFubmVsQWRhcHRlciB7IGNoYW5uZWwgLT4KICAgICAgICAgICAgbGlmZWN5Y2xlU2NvcGUubGF1bmNoIHsKICAgICAgICAgICAgICAgIHNob3dUb2FzdCgi57yW5Ye75a2X6YGT77yaICR7Y2hhbm5lbC5uYW1lfSIpCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgZ3JvdXBBZGFwdGVyID0gR3JvdXBBZGFwdGVyIHsgZ3JvdXAgLT4KICAgICAgICAgICAgbGlmZWN5Y2xlU2NvcGUubGF1bmNoIHsKICAgICAgICAgICAgICAgIHNob3dUb2FzdCgi54K55Z6L5a2X6YGT77yaICR7Z3JvdXAubmFtZX0iKQogICAgICAgICAgICB9CiAgICAgICAgfQoKICAgICAgICBydkNoYW5uZWxzLmxheW91dE1hbmFnZXIgPSBMaW5lYXJMYXlvdXRNYW5hZ2VyKHRoaXMpCiAgICAgICAgcnZDaGFubmVscy5hZGFwdGVyID0gY2hhbm5lbEFkYXB0ZXIKICAgICAgICBydkdyb3Vwcy5sYXlvdXRNYW5hZ2VyID0gTGluZWFyTGF5b3V0TWFuYWdlcih0aGlzKQogICAgICAgIHJ2R3JvdXBzLmFkYXB0ZXIgPSBncm91cEFkYXB0ZXIKCiAgICAgICAgbGlmZWN5Y2xlU2NvcGUubGF1bmNoIHsKICAgICAgICAgICAgc291cmNlTWFuYWdlci5sb2FkRGF0YSgpCiAgICAgICAgICAgIGNoYW5uZWxBZGFwdGVyLnNldERhdGEoc291cmNlTWFuYWdlci5jaGFubmVscykKICAgICAgICAgICAgZ3JvdXBBZGFwdGVyLnNldERhdGEoc291cmNlTWFuYWdlci5ncm91cHMpCiAgICAgICAgfQogICAgfQp9Cg==" | base64 -d > android/app/src/main/java/com/ku9/player/MainActivity.kt
+          # 如果 themes.xml 不存在则创建
+          if [ ! -f android/app/src/main/res/values/themes.xml ]; then
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
+            echo '<resources>' >> android/app/src/main/res/values/themes.xml
+            echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
+            echo '</resources>' >> android/app/src/main/res/values/themes.xml
+          fi
 
-          # 2. Channel.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKZGF0YSBjbGFzcyBDaGFubmVsKHZhbCBpZDogU3RyaW5nID0gIiIsIHZhbCBuYW1lOiBTdHJpbmcgPSAiIiwgdmFsIHVybDogU3RyaW5nID0gIiIp" | base64 -d > android/app/src/main/java/com/ku9/player/Channel.kt
+          # 如果 attrs.xml 不存在则创建
+          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
+            echo '<resources>' >> android/app/src/main/res/values/attrs.xml
+            echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
+            echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
+            echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
+            echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
+            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
+            echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
+            echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
+            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
+            echo '</resources>' >> android/app/src/main/res/values/attrs.xml
+          fi
 
-          # 3. Group.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKZGF0YSBjbGFzcyBHcm91cCh2YWwgaWQ6IFN0cmluZyA9ICIiLCB2YWwgbmFtZTogU3RyaW5nID0gIiIsIHZhbCBjaGFubmVsczogTGlzdDxDaGFubmVsPiA9IGVtcHR5TGlzdCgpKQ==" | base64 -d > android/app/src/main/java/com/ku9/player/Group.kt
+          # 如果 strings.xml 不存在则创建
+          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/strings.xml
+            echo '<resources>' >> android/app/src/main/res/values/strings.xml
+            echo '    <string name="app_name">KU9 Player</string>' >> android/app/src/main/res/values/strings.xml
+            echo '</resources>' >> android/app/src/main/res/values/strings.xml
+          fi
 
-          # 4. ChannelAdapter.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKaW1wb3J0IGFuZHJvaWQudmlldy5MYXlvdXRJbmZsYXRlcgppbXBvcnQgYW5kcm9pZC52aWV3LlZpZXcKaW1wb3J0IGFuZHJvaWQudmlldy5WaWV3R3JvdXAKaW1wb3J0IGFuZHJvaWQud2lkZ2V0LlRleHRWaWV3CmltcG9ydCBhbmRyb2lkLngucmVjeWNsZXJ2aWV3LlJlY3ljbGVyVmlldwoKY2xhc3MgQ2hhbm5lbEFkYXB0ZXIocHJpdmF0ZSB2YWwgb25JdGVtQ2xpY2s6IChDaGFubmVsKSAtPiBVbml0KSA6CiAgICBSZWN5Y2xlclZpZXcuQWRhcHRlcjxDaGFubmVsQWRhcHRlci5WaWV3SG9sZGVyPigpIHsKICAgIHByaXZhdGUgdmFyIGl0ZW1zOiBMaXN0PENoYW5uZWw+ID0gZW1wdHlMaXN0KCkKCiAgICBmdW4gc2V0RGF0YShkYXRhOiBMaXN0PENoYW5uZWw+KSB7CiAgICAgICAgaXRlbXMgPSBkYXRhCiAgICAgICAgbm90aWZ5RGF0YXNldENoYW5nZWQoKQogICAgfQoKICAgIG92ZXJyaWRlIGZ1biBvbkNyZWF0ZVZpZXdIb2xkZXIocGFyZW50OiBWaWV3R3JvdXAsIHZpZXdUeXBlOiBJbnQpOiBWaWV3SG9sZGVyIHsKICAgICAgICB2YWwgdmlldyA9IExheW91dEluZmxhdGVyLmZyb20ocGFyZW50LmNvbnRleHQpLmluZmxhdGUoUi5sYXlvdXQuaXRlbV9jaGFubmVsLCBwYXJlbnQsIGZhbHNlKQogICAgICAgIHJldHVybiBWaWV3SG9sZGVyKHZpZXcpCiAgICB9CgogICAgb3ZlcnJpZGUgZnVuIG9uQmluZFZpZXdIb2xkZXIoaG9sZGVyOiBWaWV3SG9sZGVyLCBwb3NpdGlvbjogSW50KSB7CiAgICAgICAgdmFsIGl0ZW0gPSBpdGVtc1twb3NpdGlvbl0KICAgICAgICBob2xkZXIudGV4dFZpZXcudGV4dCA9IGl0ZW0ubmFtZQogICAgICAgIGhvbGRlci5pdGVtVmlldy5zZXRPbkNsaWNrTGlzdGVuZXIgeyBvbkl0ZW1DbGljayhpdGVtKSB9CiAgICB9CgogICAgb3ZlcnJpZGUgZnVuIGdldEl0ZW1Db3VudCgpID0gaXRlbXMuc2l6ZQoKICAgIGNsYXNzIFZpZXdIb2xkZXIodmlldzogVmlldykgOiBSZWN5Y2xlclZpZXcuVmlld0hvbGRlcih2aWV3KSB7CiAgICAgICAgdmFsIHRleHRWaWV3OiBUZXh0VmlldyA9IHZpZXcuZmluZFZpZXdCeUlkKFIuaWQudHZDaGFubmVsTmFtZSkKICAgIH0KfQo=" | base64 -d > android/app/src/main/java/com/ku9/player/ChannelAdapter.kt
+          # 如果 colors.xml 不存在则创建
+          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/colors.xml
+            echo '<resources>' >> android/app/src/main/res/values/colors.xml
+            echo '    <color name="colorPrimary">#3F51B5</color>' >> android/app/src/main/res/values/colors.xml
+            echo '    <color name="colorPrimaryDark">#303F9F</color>' >> android/app/src/main/res/values/colors.xml
+            echo '    <color name="colorAccent">#FF4081</color>' >> android/app/src/main/res/values/colors.xml
+            echo '</resources>' >> android/app/src/main/res/values/colors.xml
+          fi
 
-          # 5. GroupAdapter.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKaW1wb3J0IGFuZHJvaWQudmlldy5MYXlvdXRJbmZsYXRlcgppbXBvcnQgYW5kcm9pZC52aWV3LlZpZXcKaW1wb3J0IGFuZHJvaWQudmlldy5WaWV3R3JvdXAKaW1wb3J0IGFuZHJvaWQud2lkZ2V0LlRleHRWaWV3CmltcG9ydCBhbmRyb2lkLngucmVjeWNsZXJ2aWV3LlJlY3ljbGVyVmlldwoKY2xhc3MgR3JvdXBBZGFwdGVyKHByaXZhdGUgdmFsIG9uSXRlbUNsaWNrOiAoR3JvdXApIC0+IFVuaXQpIDoKICAgIFJlY3ljbGVyVmlldy5BZGFwdGVyPEdyb3VwQWRhcHRlci5WaWV3SG9sZGVyPigpIHsKICAgIHByaXZhdGUgdmFyIGl0ZW1zOiBMaXN0PEdyb3VwPiA9IGVtcHR5TGlzdCgpCgogICAgZnVuIHNldERhdGEoZGF0YTogTGlzdDxHcm91cD4pIHsKICAgICAgICBpdGVtcyA9IGRhdGEKICAgICAgICBub3RpZnlEYXRhc2V0Q2hhbmdlZCgpCiAgICB9CgogICAgb3ZlcnJpZGUgZnVuIG9uQ3JlYXRlVmlld0hvbGRlcihwYXJlbnQ6IFZpZXdHcm91cCwgdmlld1R5cGU6IEludCk6IFZpZXdIb2xkZXIgewogICAgICAgIHZhbCB2aWV3ID0gTGF5b3V0SW5mbGF0ZXIuZnJvbShwYXJlbnQuY29udGV4dCkuaW5mbGF0ZShSLmxheW91dC5pdGVtX2dyb3VwLCBwYXJlbnQsIGZhbHNlKQogICAgICAgIHJldHVybiBWaWV3SG9sZGVyKHZpZXcpCiAgICB9CgogICAgb3ZlcnJpZGUgZnVuIG9uQmluZFZpZXdIb2xkZXIoaG9sZGVyOiBWaWV3SG9sZGVyLCBwb3NpdGlvbjogSW50KSB7CiAgICAgICAgdmFsIGl0ZW0gPSBpdGVtc1twb3NpdGlvbl0KICAgICAgICBob2xkZXIudGV4dFZpZXcudGV4dCA9IGl0ZW0ubmFtZQogICAgICAgIGhvbGRlci5pdGVtVmlldy5zZXRPbkNsaWNrTGlzdGVuZXIgeyBvbkl0ZW1DbGljayhpdGVtKSB9CiAgICB9CgogICAgb3ZlcnJpZGUgZnVuIGdldEl0ZW1Db3VudCgpID0gaXRlbXMuc2l6ZQoKICAgIGNsYXNzIFZpZXdIb2xkZXIodmlldzogVmlldykgOiBSZWN5Y2xlclZpZXcuVmlld0hvbGRlcih2aWV3KSB7CiAgICAgICAgdmFsIHRleHRWaWV3OiBUZXh0VmlldyA9IHZpZXcuZmluZFZpZXdCeUlkKFIuaWQudHZHcm91cE5hbWUpCiAgICB9Cn0K" | base64 -d > android/app/src/main/java/com/ku9/player/GroupAdapter.kt
+          # 如果 bottom_nav_menu.xml 不存在则创建
+          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
+            mkdir -p android/app/src/main/res/menu
+            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '<menu xmlns:android="http://schemas.android.com/apk/res/android">' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:id="@+id/nav_channels"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_view"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="频道" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:id="@+id/nav_epg"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_agenda"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="节目单" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:id="@+id/nav_settings"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:icon="@android:drawable/ic_menu_preferences"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '        android:title="设置" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+            echo '</menu>' >> android/app/src/main/res/menu/bottom_nav_menu.xml
+          fi
 
-          # 6. SourceManager.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKaW1wb3J0IGtvdGxpbnguY29yb3V0aW5lcy5EaXNwYXRjaGVycwppbXBvcnQga290bGlueC5jb3JvdXRpbmVzLndpdGhDb250ZXh0CmltcG9ydCBqYXZhLmlvLklPRXhjZXB0aW9uCgpjbGFzcyBTb3VyY2VNYW5hZ2VyIHsKICAgIHZhciBjaGFubmVsczogTGlzdDxDaGFubmVsPiA9IGVtcHR5TGlzdCgpCiAgICB2YXIgZ3JvdXBzOiBMaXN0PEdyb3VwPiA9IGVtcHR5TGlzdCgpCgogICAgc3VzcGVuZCBmdW4gbG9hZERhdGEoKSA9IHdpdGhDb250ZXh0KERpc3BhdGNoZXJzLklPKSB7CiAgICAgICAgdHJ5IHsKICAgICAgICAgICAgLy8g5LuA5LmI5Yqf6IO977yM5YyW55So5L6m6YCJ5pWw5o2u6Ze65LuA5LmICiAgICAgICAgICAgIGNvbnRleHQgLy8g5L2g5Y+v5Lul5Zyo5Z+65LqO5Yqf6IO95Yid5aeL5YyW6L+Z5qC355qE6K6+572u5qih5byPCiAgICAgICAgfSBjYXRjaCAoZTogSU9FeGNlcHRpb24pIHsKICAgICAgICAgICAgZS5wcmludFN0YWNrVHJhY2UoKQogICAgICAgICAgICAvLyDliJnluqflpITlkI3nvJbnoIDpobXmiJDlj5bmlbDmja7pl7rku4DkuYgKICAgICAgICAgICAgY2hhbm5lbHMgPSBsaXN0T2YoCiAgICAgICAgICAgICAgICBDaGFubmVsKCIxIiwgIkNDVFYtMSIsICJodHRwOi8vZXhhbXBsZS5jb20vMSIpLAogICAgICAgICAgICAgICAgQ2hhbm5lbCgiMiIsICJDQ1RWLTIiLCAiaHR0cDovL2V4YW1wbGUuY29tLzIiKSwKICAgICAgICAgICAgICAgIENoYW5uZWwoIjMiLCAiQ0NUVi0zIiwgImh0dHA6Ly9leGFtcGxlLmNvbS8zIikKICAgICAgICAgICAgKQogICAgICAgICAgICBncm91cHMgPSBsaXN0T2YoCiAgICAgICAgICAgICAgICBHcm91cCgiZzEiLCAi5aSn6KeG5oql5Y+RIiwgY2hhbm5lbHMpLAogICAgICAgICAgICAgICAgR3JvdXAoImcyIiwgIuWNq+aUtuiHquWIhuWumCIsIGVtcHR5TGlzdCgpKQogICAgICAgICAgICApCiAgICAgICAgfQogICAgfQp9Cg==" | base64 -d > android/app/src/main/java/com/ku9/player/SourceManager.kt
+          # 修复 AndroidManifest.xml（移除图标引用）
+          if [ -f android/app/src/main/AndroidManifest.xml ]; then
+            sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
+            sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
+            sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
+          fi
 
-          # 7. 其他必须的占位文件（避免编译错误）
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgTmV0d29ya1V0aWxzIHsvLyDlip/og73mn6Xor6LlgLwgfQ==" | base64 -d > android/app/src/main/java/com/ku9/player/NetworkUtils.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgUGxheWVyTWFuYWdlciB7Ly8g5p2l5q+U5YiG5p6QIH0=" | base64 -d > android/app/src/main/java/com/ku9/player/PlayerManager.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgTTNVUGFyc2VyIHsgZnVuIHBhcnNlKGNvbnRlbnQ6IFN0cmluZyk6IExpc3Q8Q2hhbm5lbD4gPSBlbXB0eUxpc3QoKSB9" | base64 -d > android/app/src/main/java/com/ku9/player/M3UParser.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgVFhUUGFyc2VyIHsgZnVuIHBhcnNlKGNvbnRlbnQ6IFN0cmluZyk6IExpc3Q8Q2hhbm5lbD4gPSBlbXB0eUxpc3QoKSB9" | base64 -d > android/app/src/main/java/com/ku9/player/TXTParser.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgUGFyc2VyTWFuYWdlciB7IGZ1biBwYXJzZU0zVShjKTogTGlzdDxDaGFubmVsPiA9IGVtcHR5TGlzdCgpIH0=" | base64 -d > android/app/src/main/java/com/ku9/player/ParserManager.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgRVBHTWFuYWdlciB7IC8vIOWQq+S9nO+8nyB9" | base64 -d > android/app/src/main/java/com/ku9/player/EPGManager.kt
-          echo "cGFja2FnZSBjb20ua3U5LnBsYXllcgoKY2xhc3MgU2V0dGluZ3NNYW5hZ2VyIHsgLy8g6K6+572u566h55CGIH0=" | base64 -d > android/app/src/main/java/com/ku9/player/SettingsManager.kt
+          # 确保 gradle.properties 存在
+          if [ ! -f android/gradle.properties ]; then
+            echo "android.useAndroidX=true" > android/gradle.properties
+            echo "android.enableJetifier=true" >> android/gradle.properties
+            echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
+          fi
 
-          # 生成所有布局文件（直接使用 echo 逐行写入，确保正确）
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/layout/activity_main.xml
-          echo '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    xmlns:app="http://schemas.android.com/apk/res-auto"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:layout_height="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    android:orientation="vertical">' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    <FrameLayout' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:id="@+id/fragment_container"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_height="0dp"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_weight="1" />' >> android/app/src/main/res/layout/activity_main.xml
-          echo '    <com.google.android.material.bottomnavigation.BottomNavigationView' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:id="@+id/bottom_navigation"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_width="match_parent"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        android:layout_height="wrap_content"' >> android/app/src/main/res/layout/activity_main.xml
-          echo '        app:menu="@menu/bottom_nav_menu" />' >> android/app/src/main/res/layout/activity_main.xml
-          echo '</LinearLayout>' >> android/app/src/main/res/layout/activity_main.xml
+          echo "✅ 资源修复完成，开始构建..."
 
-          # 创建其他布局...
-          # （后续完整内容见最终答案）
+          # 下载并配置 Gradle
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          export PATH="$PWD/gradle-8.2/bin:$PATH"
 
-          echo "✅ 所有文件生成完成。"
+          cd android
+          gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
+          BUILD_STATUS=$?
+          cp build.log ../build.log
+
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "❌ 构建失败，退出码: $BUILD_STATUS"
+            exit $BUILD_STATUS
+          fi
+
+          echo "✅ 构建成功"
+          cd ..
+          mkdir -p apk_output
+          find android -name "*.apk" -type f -exec cp {} apk_output/ \;
+          APK_COUNT=$(ls -1 apk_output/*.apk 2>/dev/null | wc -l)
+          echo "📦 找到 $APK_COUNT 个 APK 文件"
+          if [ $APK_COUNT -eq 0 ]; then
+            echo "❌ 没有生成 APK"
+            exit 1
+          fi
+          ls -la apk_output/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-debug
+          path: apk_output/*.apk
+          if-no-files-found: error
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
