@@ -31,51 +31,61 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Copy Kotlin files and generate resources
+      - name: Copy all Kotlin files and generate missing resources
         run: |
+          echo "🚀 开始修复项目结构..."
+
           # 1. 创建目标包目录
           mkdir -p android/app/src/main/java/com/ku9/player
-          
-          # 2. 复制所有 .kt 文件（排除 android 目录）
-          echo "复制 Kotlin 文件..."
+
+          # 2. 将仓库根目录所有 .kt 文件（排除 android/ 目录）复制到目标包
+          echo "📦 复制 Kotlin 文件..."
+          find . -maxdepth 3 -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
+          # 也复制子目录中的 .kt（如 data/, parser/ 等）
           find . -name "*.kt" ! -path "./android/*" -exec cp -v {} android/app/src/main/java/com/ku9/player/ \;
-          
-          # 3. 生成缺失的资源文件（使用 base64 解码方式避免 heredoc 错误）
+
+          # 3. 生成所有缺失的资源文件（布局、菜单、values）
+          mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
-          mkdir -p android/app/src/main/res/layout
-          
-          # themes.xml
-          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHlsZSBuYW1lPSJUaGVtZS5LVTlQbGF5ZXIiIHBhcmVudD0iVGhlbWUuQXBwQ29tcGF0LkxpZ2h0LkRhcmtBY3Rpb25CYXIiIC8+CjwvcmVzb3VyY2VzPgo=" | base64 -d > android/app/src/main/res/values/themes.xml
-          
-          # attrs.xml
-          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxhdHRyIG5hbWU9InVzZV9jb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJjb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJwbGF5ZXIiIGZvcm1hdD0icmVmZXJlbmNlIiAvPgogICAgPGF0dHIgbmFtZT0ic3VyZmFjZV90eXBlIiBmb3JtYXQ9ImVudW0iPgogICAgICAgIDxlbnVtIG5hbWU9InN1cmZhY2VfdmlldyIgdmFsdWU9IjAiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idGV4dHVyZV92aWV3IiB2YWx1ZT0iMSIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJzcGhlcmljYWxfdmlldyIgdmFsdWU9IjIiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idmlkZW9fZGVjb2Rlcl9nbF9zdXJmYWNlX3ZpZXciIHZhbHVlPSIzIiAvPgogICAgPC9hdHRyPgogICAgPGF0dHIgbmFtZT0icmVzaXplX21vZGUiIGZvcm1hdD0iZW51bSI+CiAgICAgICAgPGVudW0gbmFtZT0iZml0IiB2YWx1ZT0iMCIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaXhlZF93aWR0aCIgdmFsdWU9IjEiIC8+CiAgICAgICAgPGVudW0gbmFtZT0iZml4ZWRfaGVpZ2h0IiB2YWx1ZT0iMiIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaWxsIiB2YWx1ZT0iMyIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJ6b29tIiB2YWx1ZT0iNCIgLz4KICAgIDwvYXR0cj4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/attrs.xml
-          
-          # strings.xml
-          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPktVOSBQbGF5ZXI8L3N0cmluZz4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/strings.xml
-          
-          # colors.xml
-          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxjb2xvciBuYW1lPSJjb2xvclByaW1hcnkiPiMzRjUxQjU8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yUHJpbWFyeURhcmsiPiMzMDNGOEY8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yQWNjZW50Ij4jRkY0MDgxPC9jb2xvcj4KPC9yZXNvdXJjZXM+Cg==" | base64 -d > android/app/src/main/res/values/colors.xml
-          
-          # bottom_nav_menu.xml
-          echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPG1lbnUgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj4KICAgIDxpdGVtIGFuZHJvaWQ6aWQ9IkArKy9pZC9uYXZfY2hhbm5lbHMiCiAgICAgICAgYW5kcm9pZDppY29uPSJAYW5kcm9pZDpkcmF3YWJsZS9pY19tZW51X3ZpZXciCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i6aKR6YGTIiAvPgogICAgPGl0ZW0gYW5kcm9pZDppZD0iQCsvpL2vbmF2X2VwZyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfYWdlbmRhIgogICAgICAgIGFuZHJvaWQ6dGl0bGU9IuenmOebuOWNlSIgLz4KICAgIDxpdGVtIGFuZHJvaWQ6aWQ9IkArKy9pZC9uYXZfc2V0dGluZ3MiCiAgICAgICAgYW5kcm9pZDppY29uPSJAYW5kcm9pZDpkcmF3YWJsZS9pY19tZW51X3ByZWZlcmVuY2VzIgogICAgICAgIGFuZHJvaWQ6dGl0bGU9Iuitiee6oiIgLz4KPC9tZW51Pgo=" | base64 -d > android/app/src/main/res/menu/bottom_nav_menu.xml
-          
-          # 4. 修复 AndroidManifest.xml
+
+          # 使用 base64 解码写入布局文件，避免 heredoc 编码问题
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICB4bWxuczphcHA9Imh0dHA6Ly9zY2hlbWFzLmFuZHJvaWQuY29tL2Fway9yZXMvYW5kcm9pZCIKICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSJtYXRjaF9wYXJlbnQiCiAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9Im1hdGNoX3BhcmVudCIKICAgIGFuZHJvaWQ6b3JpZW50YXRpb249InZlcnRpY2FsIj4KICAgIDxGcmFtZUxheW91dAogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9mcmFnbWVudF9jb250YWluZXIiCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfd2lkdGg9Im1hdGNoX3BhcmVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IjBkcCIKICAgICAgICBhbmRyb2lkOmxheW91dF93ZWlnaHQ9IjEiIC8+CiAgICA8Y29tLmdvb2dsZS5hbmRyb2lkLm1hdGVyaWFsLmJvdHRvbW5hdmlnYXRpb24uQm90dG9tTmF2aWdhdGlvblZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvYm90dG9tX25hdmlnYXRpb24iCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfd2lkdGg9Im1hdGNoX3BhcmVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IndyYXBfY29udGVudCIKICAgICAgICBhcHA6bWVudT0iQG1lbnUvYm90dG9tX25hdl9tZW51IiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/activity_main.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgYW5kcm9pZDpsYXlvdXRfaGVpZ2h0PSJtYXRjaF9wYXJlbnQiCiAgICBhbmRyb2lkOm9yaWVudGF0aW9uPSJ2ZXJ0aWNhbCI+CiAgICA8U3Bpbm5lcgogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9zcGlubmVyX2dyb3VwcyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0id3JhcF9jb250ZW50IiAvPgogICAgPGFuZHJvaWR4LmFwcGNvbXBhdC53aWRnZXQuU2VhcmNoVmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9zZWFyY2hfdmlldyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0id3JhcF9jb250ZW50IgogICAgICAgIGFuZHJvaWQ6cXVlcnlIaW50PSLmkJzosYHpopHpgZMiIC8+CiAgICA8YW5kcm9pZHgucmVjeWNsZXJ2aWV3LlJlY3ljbGVyVmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9ydl9jaGFubmVscyIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0ibWF0Y2hfcGFyZW50IiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/fragment_channel_list.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGxpbmVhckxheW91dCB4bWxuczphbmRyb2lkPSJodHRwOi8vYW5kcm9pZC5hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOmxheW91dF93aWR0aD0ibWF0Y2hfcGFyZW50IgogICAgYW5kcm9pZDpsYXlvdXRfaGVpZ2h0PSJ3cmFwX2NvbnRlbnQiCiAgICBhbmRyb2lkOnBhZGRpbmc9IjEycGQiCiAgICBhbmRyb2lkOm9yaWVudGF0aW9uPSJob3Jpem9udGFsIj4KICAgIDxJbWFnZVZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvaXZMb2dvIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSI0MGRwIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X2hlaWdodD0iNDBkcCIKICAgICAgICBhbmRyb2lkOnNjYWxlVHlwZT0iY2VudGVyQ3JvcCIgLz4KICAgIDxUZXh0VmlldwogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC90dkNoYW5uZWxOYW1lIgogICAgICAgIGFuZHJvaWQ6bGF5b3V0X3dpZHRoPSIwcCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IndyYXBfY29udGVudCIKICAgICAgICBhbmRyb2lkOmxheW91dF93ZWlnaHQ9IjEiCiAgICAgICAgYW5kcm9pZDpsYXlvdXRfbWFyZ2luU3RhcnQ9IjEycGQiCiAgICAgICAgYW5kcm9pZDp0ZXh0U2l6ZT0iMTZzcCIgLz4KICAgIDxJbWFnZVZpZXcKICAgICAgICBhbmRyb2lkOmlkPSJAaWQvaXZGYXZvcml0ZSIKICAgICAgICBhbmRyb2lkOmxheW91dF93aWR0aD0iMjRkcCIKICAgICAgICBhbmRyb2lkOmxheW91dF9oZWlnaHQ9IjI0ZHAiCiAgICAgICAgYW5kcm9pZDpzcmM9IkBhbmRyb2lkOmRyYXdhYmxlL3N0YXJfb2ZmIiAvPgo8L2xpbmVhckxheW91dD4K' | base64 -d > android/app/src/main/res/layout/item_channel.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPG1lbnUgeG1sbnM6YW5kcm9pZD0iaHR0cDovL3NjaGVtYXMuYW5kcm9pZC5jb20vYXBrL3Jlcy9hbmRyb2lkIj4KICAgIDxpdGVtCiAgICAgICAgYW5kcm9pZDppZD0iQGlkL25hdl9jaGFubmVscyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfdmlldyIKICAgICAgICBhbmRyb2lkOnRpdGxlPSLpopHpgZMiIC8+CiAgICA8aXRlbQogICAgICAgIGFuZHJvaWQ6aWQ9IkBpZC9uYXZfZXBnIgogICAgICAgIGFuZHJvaWQ6aWNvbj0iQGFuZHJvaWQ6ZHJhd2FibGUvaWNfbWVudV9hZ2VuZGEiCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i56ym55uu5Y2VICIgLz4KICAgIDxpdGVtCiAgICAgICAgYW5kcm9pZDppZD0iQGlkL25hdl9zZXR0aW5ncyIKICAgICAgICBhbmRyb2lkOmljb249IkBhbmRyb2lkOmRyYXdhYmxlL2ljX21lbnVfcHJlZmVyZW5jZXMiCiAgICAgICAgYW5kcm9pZDp0aXRsZT0i6K6+572uIiAvPgo8L21lbnU+Cg==' | base64 -d > android/app/src/main/res/menu/bottom_nav_menu.xml
+
+          # 生成 values 资源（themes, attrs, strings, colors）
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHlsZSBuYW1lPSJUaGVtZS5LVTlQbGF5ZXIiIHBhcmVudD0iVGhlbWUuQXBwQ29tcGF0LkxpZ2h0LkRhcmtBY3Rpb25CYXIiIC8+CjwvcmVzb3VyY2VzPgo=' | base64 -d > android/app/src/main/res/values/themes.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxhdHRyIG5hbWU9InVzZV9jb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJjb250cm9sbGVyIiBmb3JtYXQ9ImJvb2xlYW4iIC8+CiAgICA8YXR0ciBuYW1lPSJwbGF5ZXIiIGZvcm1hdD0icmVmZXJlbmNlIiAvPgogICAgPGF0dHIgbmFtZT0ic3VyZmFjZV90eXBlIiBmb3JtYXQ9ImVudW0iPgogICAgICAgIDxlbnVtIG5hbWU9InN1cmZhY2VfdmlldyIgdmFsdWU9IjAiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idGV4dHVyZV92aWV3IiB2YWx1ZT0iMSIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJzcGhlcmljYWxfdmlldyIgdmFsdWU9IjIiIC8+CiAgICAgICAgPGVudW0gbmFtZT0idmlkZW9fZGVjb2Rlcl9nbF9zdXJmYWNlX3ZpZXciIHZhbHVlPSIzIiAvPgogICAgPC9hdHRyPgogICAgPGF0dHIgbmFtZT0icmVzaXplX21vZGUiIGZvcm1hdD0iZW51bSI+CiAgICAgICAgPGVudW0gbmFtZT0iZml0IiB2YWx1ZT0iMCIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaXhlZF93aWR0aCIgdmFsdWU9IjEiIC8+CiAgICAgICAgPGVudW0gbmFtZT0iZml4ZWRfaGVpZ2h0IiB2YWx1ZT0iMiIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJmaWxsIiB2YWx1ZT0iMyIgLz4KICAgICAgICA8ZW51bSBuYW1lPSJ6b29tIiB2YWx1ZT0iNCIgLz4KICAgIDwvYXR0cj4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/attrs.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPktVOSBQbGF5ZXI8L3N0cmluZz4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/strings.xml
+
+          echo 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHJlc291cmNlcz4KICAgIDxjb2xvciBuYW1lPSJjb2xvclByaW1hcnkiPiMzRjUxQjU8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yUHJpbWFyeURhcmsiPiMzMDNGOEY8L2NvbG9yPgogICAgPGNvbG9yIG5hbWU9ImNvbG9yQWNjZW50Ij4jRkY0MDgxPC9jb2xvcj4KPC9yZXNvdXJjZXM+Cg==' | base64 -d > android/app/src/main/res/values/colors.xml
+
+          # 修复 AndroidManifest.xml
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/ package="com\.ku9\.player"//' "$MANIFEST"
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' "$MANIFEST"
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' "$MANIFEST"
           fi
-          
-          # 5. 创建 gradle.properties
+
+          # 生成 gradle.properties
           cat > android/gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
-          
-          echo "所有准备工作完成。"
+
+          echo "✅ 所有文件已就绪。"
+          # 列出目标目录的内容以便验证
+          echo "📁 目标包目录内容："
+          ls -la android/app/src/main/java/com/ku9/player/
 
       - name: Build APK with Gradle
         id: build
