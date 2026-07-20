@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 自动修复酷9播放器构建错误（修复 sed 错误版）
+# fix_build.sh - 自动修复酷9播放器构建错误（无反向引用版）
 set -e
 
 echo "=========================================="
-echo "  🔧 开始执行构建修复脚本 (修复版)"
+echo "  🔧 开始执行构建修复脚本 (安全版)"
 echo "=========================================="
 
 # ---------- 1. 修复 app/build.gradle ----------
@@ -59,29 +59,17 @@ if [ -f "$EPG_MANAGER" ]; then
         sed -i '/^package/a\
 import java.util.regex.Pattern' "$EPG_MANAGER"
     fi
-    # 尝试修复 forEach 歧义：将 .forEach { 替换为 .entries.forEach { entry ->
+    # 修复 forEach 歧义
     sed -i 's/\.forEach {/.entries.forEach { entry ->/g' "$EPG_MANAGER"
-    # 将内部的 it 替换为 entry.value 等（粗略）
     sed -i 's/\bval\s\+program\s*=\s*it\.value/val program = entry.value/g' "$EPG_MANAGER"
     sed -i 's/\bval\s\+key\s*=\s*it\.key/val key = entry.key/g' "$EPG_MANAGER"
 fi
 
-# ---------- 4. 自动删除 MainActivity 中的重复 ChannelListFragment 定义 ----------
+# ---------- 4. 检查重复类（仅提示，不自动修改） ----------
 MAIN_ACTIVITY="android/app/src/main/java/com/ku9/player/MainActivity.kt"
 if [ -f "$MAIN_ACTIVITY" ]; then
-    # 检查是否包含内部 class ChannelListFragment
     if grep -q "class ChannelListFragment" "$MAIN_ACTIVITY"; then
-        echo "🔪 删除 MainActivity 中重复的 ChannelListFragment 内部类..."
-        # 使用 awk 删除从 "class ChannelListFragment" 到匹配的闭合括号（假设缩进正确）
-        # 保存备份
-        cp "$MAIN_ACTIVITY" "$MAIN_ACTIVITY.bak"
-        # 使用 sed 删除整个内部类（从 class ChannelListFragment 到下一个同缩进的 }）
-        # 匹配以 "class ChannelListFragment" 开头的行，然后删除直到遇到与同一层级的 }（假设缩进为4空格）
-        # 更安全的方法：使用 Python 脚本，但这里用 sed 多行模式
-        # 尝试删除从 'class ChannelListFragment' 到包含 '}' 且与前一缩进相同或更少的行
-        # 我们使用一个简单的方法：注释掉整个类，但不删除，避免误删
-        sed -i '/^\([ \t]*\)class ChannelListFragment/,/^\(\1[ \t]*\)}/ s/^/\/\/ /' "$MAIN_ACTIVITY"
-        echo "已将内部类注释掉（以 // 开头）"
+        echo "⚠️ 发现重复类 ChannelListFragment 在 MainActivity.kt 中，请手动删除或注释掉该内部类"
     fi
 fi
 
@@ -94,7 +82,7 @@ fi
 
 # ---------- 6. 修复 MainActivity 中 ChannelListFragment 实例化 ----------
 if [ -f "$MAIN_ACTIVITY" ]; then
-    # 将 ChannelListFragment() 改为 ChannelListFragment(emptyList())
+    # 将 ChannelListFragment() 改为 ChannelListFragment(emptyList())（若外部类存在）
     sed -i 's/ChannelListFragment()/ChannelListFragment(emptyList())/g' "$MAIN_ACTIVITY"
 fi
 
@@ -110,23 +98,20 @@ SOURCE_MANAGER="android/app/src/main/java/com/ku9/player/SourceManager.kt"
 if [ -f "$SOURCE_MANAGER" ]; then
     echo "🔧 修复 SourceManager..."
     sed -i 's/, logo=[^,)]*//g' "$SOURCE_MANAGER"
-    # 可能第74行有类型错误，暂时无法自动修复，只输出警告
-    echo "⚠️ 请检查 SourceManager.kt 第74行类型匹配"
+    echo "⚠️ 请检查 SourceManager.kt 第74行类型匹配（可能需手动调整）"
 fi
 
-# ---------- 9. 修复 PlayerManager API 调用（修正 sed 错误） ----------
+# ---------- 9. 修复 PlayerManager API（注释过时调用） ----------
 PLAYER_MANAGER="android/app/src/main/java/com/ku9/player/PlayerManager.kt"
 if [ -f "$PLAYER_MANAGER" ]; then
     echo "🔧 修复 PlayerManager API..."
-    # 注释掉过时 API 调用（简单安全）
     sed -i 's/^.*setHardwareCodecEnabled.*$/\/\/ &/' "$PLAYER_MANAGER"
     sed -i 's/^.*setLoadErrorHandlingPolicy.*$/\/\/ &/' "$PLAYER_MANAGER"
     sed -i 's/^.*setVideoScalingMode.*$/\/\/ &/' "$PLAYER_MANAGER"
-    # 添加提示注释
     sed -i '/^\/\/ setHardwareCodecEnabled/a\        // TODO: Use DefaultTrackSelector.Builder for media3 1.4+' "$PLAYER_MANAGER"
 fi
 
-# ---------- 10. 修复 EPGAdapter 中的字段名 ----------
+# ---------- 10. 修复 EPGAdapter 字段名 ----------
 EPG_ADAPTER="android/app/src/main/java/com/ku9/player/EPGAdapter.kt"
 if [ -f "$EPG_ADAPTER" ]; then
     echo "🔧 修复 EPGAdapter 字段引用..."
@@ -134,7 +119,7 @@ if [ -f "$EPG_ADAPTER" ]; then
     sed -i 's/\.endTime/.end/g' "$EPG_ADAPTER"
 fi
 
-# ---------- 11. 检查布局文件（只警告） ----------
+# ---------- 11. 检查布局文件 ----------
 LAYOUT="android/app/src/main/res/layout/fragment_channel_list.xml"
 if [ ! -f "$LAYOUT" ]; then
     echo "⚠️ 布局文件 fragment_channel_list.xml 不存在"
@@ -145,9 +130,9 @@ else
 fi
 
 echo "=========================================="
-echo "  ✅ 修复完成（无致命错误）"
-echo "  ⚠️ 请检查以下可能需手动处理的项:"
-echo "    - SourceManager.kt 第74行类型"
-echo "    - MainActivity.kt 内部类已注释，若需恢复请取消注释"
-echo "    - PlayerManager.kt 中的过时 API 已注释"
+echo "  ✅ 修复完成（脚本执行成功）"
+echo "  ⚠️ 请手动处理以下事项："
+echo "    - MainActivity.kt 中的重复内部类（如有）"
+echo "    - SourceManager.kt 第74行类型不匹配"
+echo "    - 检查其他编译错误（若有）"
 echo "=========================================="
