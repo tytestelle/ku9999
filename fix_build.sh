@@ -1,10 +1,16 @@
 #!/bin/bash
-# fix_build.sh - 最终完整修复（解决所有编译和资源错误）
+# fix_build.sh - 终极修复（强制删除重复的 EPGAdapter）
 set -e
 
 echo "=========================================="
-echo "  🔧 执行终极修复（含资源）"
+echo "  🔧 执行终极修复（删除重复 EPGAdapter）"
 echo "=========================================="
+
+# ---------- 0. 强制删除可能冲突的 EPGAdapter.kt ----------
+echo "🗑️ 删除可能存在的 EPGAdapter.kt..."
+rm -f android/app/src/main/java/com/ku9/player/EPGAdapter.kt
+# 同时删除任何其他可能冲突的文件（如大小写变体）
+rm -f android/app/src/main/java/com/ku9/player/epgadapter.kt
 
 # ---------- 1. 修复 app/build.gradle ----------
 APP_GRADLE="android/app/build.gradle"
@@ -40,11 +46,10 @@ sed -i '/com.google.android.exoplayer:exoplayer/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-hls/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-ui/d' "$APP_GRADLE"
 
-# ---------- 2. 修正布局文件中的图标引用 ----------
+# ---------- 2. 创建/修正布局文件 ----------
 LAYOUT_DIR="android/app/src/main/res/layout"
 mkdir -p "$LAYOUT_DIR"
 
-# 2.1 修复 item_channel.xml - 使用系统图标
 cat > "$LAYOUT_DIR/item_channel.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -52,13 +57,11 @@ cat > "$LAYOUT_DIR/item_channel.xml" << 'EOF'
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="16dp">
-
     <ImageView
         android:id="@+id/channel_logo"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:src="@android:drawable/ic_menu_gallery" />
-
     <TextView
         android:id="@+id/channel_name"
         android:layout_width="0dp"
@@ -70,7 +73,6 @@ cat > "$LAYOUT_DIR/item_channel.xml" << 'EOF'
 </LinearLayout>
 EOF
 
-# 2.2 创建缺失的 drawable/ic_launcher_foreground.xml（以防其他文件引用）
 mkdir -p android/app/src/main/res/drawable
 cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -93,7 +95,7 @@ cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 </vector>
 EOF
 
-# ---------- 3. 确保其他布局文件存在 ----------
+# 其他布局
 cat > "$LAYOUT_DIR/activity_main.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -174,116 +176,47 @@ cat > "$LAYOUT_DIR/fragment_epg.xml" << 'EOF'
 </LinearLayout>
 EOF
 
-# ---------- 4. 修正 Kotlin 文件（PlayerManager 简化版） ----------
+# ---------- 3. 重写所有 Kotlin 文件（确保唯一性） ----------
 SRC_DIR="android/app/src/main/java/com/ku9/player"
+mkdir -p "$SRC_DIR"
 
-cat > "$SRC_DIR/PlayerManager.kt" << 'EOF'
+# 3.1 EpgAdapter.kt（唯一）
+cat > "$SRC_DIR/EpgAdapter.kt" << 'EOF'
 package com.ku9.player
 
-import android.content.Context
-import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import androidx.media3.common.*
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
-import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import java.util.concurrent.atomic.AtomicBoolean
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 
-@UnstableApi
-class PlayerManager(private val context: Context) {
+class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 
-    companion object {
-        private const val MAX_RETRY_COUNT = 3
-        private const val RETRY_DELAY_MS = 2000L
+    private var items: List<EpgProgram> = emptyList()
+
+    fun submitList(list: List<EpgProgram>) {
+        items = list
+        notifyDataSetChanged()
     }
 
-    private var exoPlayer: ExoPlayer? = null
-    private var currentUrl: String? = null
-    private var currentHeaders: Map<String, String> = emptyMap()
-    private var retryCount = 0
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val isReleased = AtomicBoolean(false)
-
-    private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_READY) retryCount = 0
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = TextView(parent.context).apply {
+            textSize = 16f
+            setPadding(32, 16, 32, 16)
         }
-
-        override fun onPlayerError(error: PlaybackException) {
-            if (retryCount < MAX_RETRY_COUNT && !isReleased.get()) {
-                retryCount++
-                mainHandler.postDelayed({
-                    currentUrl?.let { play(it, currentHeaders) }
-                }, RETRY_DELAY_MS * retryCount)
-            }
-        }
+        return ViewHolder(view)
     }
 
-    private fun initPlayer(): ExoPlayer {
-        if (exoPlayer == null) {
-            val selector = DefaultTrackSelector(context)
-            val player = ExoPlayer.Builder(context)
-                .setTrackSelector(selector)
-                .build()
-            player.addListener(playerListener)
-            exoPlayer = player
-        }
-        return exoPlayer!!
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val program = items[position]
+        holder.textView.text = "${program.title} (${program.startTime} - ${program.endTime})"
     }
 
-    fun play(url: String, headers: Map<String, String> = emptyMap()) {
-        if (isReleased.get()) return
-        currentUrl = url
-        currentHeaders = headers
-        val player = initPlayer()
-        val mediaSource = buildMediaSource(url, headers)
-        player.setMediaSource(mediaSource)
-        player.prepare()
-        player.play()
-    }
+    override fun getItemCount() = items.size
 
-    private fun buildMediaSource(url: String, headers: Map<String, String>): MediaSource {
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(headers)
-        return HlsMediaSource.Factory(dataSourceFactory)
-            .setAllowChunklessPreparation(true)
-            .createMediaSource(MediaItem.fromUri(Uri.parse(url)))
-    }
-
-    fun pause() {
-        exoPlayer?.pause()
-    }
-
-    fun resume() {
-        exoPlayer?.play()
-    }
-
-    fun stop() {
-        exoPlayer?.stop()
-    }
-
-    fun release() {
-        isReleased.set(true)
-        mainHandler.removeCallbacksAndMessages(null)
-        exoPlayer?.apply {
-            removeListener(playerListener)
-            release()
-        }
-        exoPlayer = null
-    }
-
-    fun seekTo(positionMs: Long) {
-        exoPlayer?.seekTo(positionMs)
-    }
+    class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
 }
 EOF
 
-# 其他核心文件（保持完整性）
+# 3.2 其他核心文件（确保完整）
 cat > "$SRC_DIR/Channel.kt" << 'EOF'
 package com.ku9.player
 
@@ -554,41 +487,6 @@ data class EpgProgram(
 )
 EOF
 
-cat > "$SRC_DIR/EpgAdapter.kt" << 'EOF'
-package com.ku9.player
-
-import android.view.ViewGroup
-import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
-
-class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
-
-    private var items: List<EpgProgram> = emptyList()
-
-    fun submitList(list: List<EpgProgram>) {
-        items = list
-        notifyDataSetChanged()
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = TextView(parent.context).apply {
-            textSize = 16f
-            setPadding(32, 16, 32, 16)
-        }
-        return ViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val program = items[position]
-        holder.textView.text = "${program.title} (${program.startTime} - ${program.endTime})"
-    }
-
-    override fun getItemCount() = items.size
-
-    class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
-}
-EOF
-
 cat > "$SRC_DIR/SettingsFragment.kt" << 'EOF'
 package com.ku9.player
 
@@ -609,10 +507,116 @@ class SettingsFragment : Fragment() {
 }
 EOF
 
-# ---------- 5. 清理并完成 ----------
+cat > "$SRC_DIR/PlayerManager.kt" << 'EOF'
+package com.ku9.player
+
+import android.content.Context
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import androidx.media3.common.*
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import java.util.concurrent.atomic.AtomicBoolean
+
+@UnstableApi
+class PlayerManager(private val context: Context) {
+
+    companion object {
+        private const val MAX_RETRY_COUNT = 3
+        private const val RETRY_DELAY_MS = 2000L
+    }
+
+    private var exoPlayer: ExoPlayer? = null
+    private var currentUrl: String? = null
+    private var currentHeaders: Map<String, String> = emptyMap()
+    private var retryCount = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val isReleased = AtomicBoolean(false)
+
+    private val playerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_READY) retryCount = 0
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            if (retryCount < MAX_RETRY_COUNT && !isReleased.get()) {
+                retryCount++
+                mainHandler.postDelayed({
+                    currentUrl?.let { play(it, currentHeaders) }
+                }, RETRY_DELAY_MS * retryCount)
+            }
+        }
+    }
+
+    private fun initPlayer(): ExoPlayer {
+        if (exoPlayer == null) {
+            val selector = DefaultTrackSelector(context)
+            val player = ExoPlayer.Builder(context)
+                .setTrackSelector(selector)
+                .build()
+            player.addListener(playerListener)
+            exoPlayer = player
+        }
+        return exoPlayer!!
+    }
+
+    fun play(url: String, headers: Map<String, String> = emptyMap()) {
+        if (isReleased.get()) return
+        currentUrl = url
+        currentHeaders = headers
+        val player = initPlayer()
+        val mediaSource = buildMediaSource(url, headers)
+        player.setMediaSource(mediaSource)
+        player.prepare()
+        player.play()
+    }
+
+    private fun buildMediaSource(url: String, headers: Map<String, String>): MediaSource {
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setDefaultRequestProperties(headers)
+        return HlsMediaSource.Factory(dataSourceFactory)
+            .setAllowChunklessPreparation(true)
+            .createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+    }
+
+    fun pause() {
+        exoPlayer?.pause()
+    }
+
+    fun resume() {
+        exoPlayer?.play()
+    }
+
+    fun stop() {
+        exoPlayer?.stop()
+    }
+
+    fun release() {
+        isReleased.set(true)
+        mainHandler.removeCallbacksAndMessages(null)
+        exoPlayer?.apply {
+            removeListener(playerListener)
+            release()
+        }
+        exoPlayer = null
+    }
+
+    fun seekTo(positionMs: Long) {
+        exoPlayer?.seekTo(positionMs)
+    }
+}
+EOF
+
+# ---------- 4. 清理生成目录 ----------
 rm -rf android/app/build/generated
 
 echo "=========================================="
-echo "  ✅ 所有修复完成（含资源）"
-echo "  现在构建应该完全成功"
+echo "  ✅ 修复完成（已删除重复 EPGAdapter）"
+echo "  现在构建将完全成功"
 echo "=========================================="
