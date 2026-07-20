@@ -29,40 +29,73 @@ jobs:
           unzip -q gradle-8.2-bin.zip
           echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
 
-      - name: Copy source and resource files to standard locations
+      - name: Prepare source and resources
         run: |
-          mkdir -p android/app/src/main/java/com/ku9/player/manager
-          mkdir -p android/app/src/main/java/com/ku9/player/utils
-          mkdir -p android/app/src/main/java/com/ku9/player/data
-          mkdir -p android/app/src/main/java/com/ku9/player/parser
-          mkdir -p android/app/src/main/java/com/ku9/player/player
-          mkdir -p android/app/src/main/java/com/ku9/player/ui
+          # 创建标准目录
+          mkdir -p android/app/src/main/java/com/ku9/player
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
 
-          # 复制根目录下的 .kt 文件（包括子目录）
-          find . -name "*.kt" -not -path "./android/*" -exec cp --parents {} android/app/src/main/java/com/ku9/player/ \;
-          # 复制布局文件
-          cp activity_main.xml item_channel.xml item_group.xml android/app/src/main/res/layout/ 2>/dev/null || true
-          # 复制 values
-          cp -r values/* android/app/src/main/res/values/ 2>/dev/null || true
-          # 复制 AndroidManifest
-          cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml 2>/dev/null || true
+          # 复制 MainActivity.kt
+          if [ -f MainActivity.kt ]; then
+            cp MainActivity.kt android/app/src/main/java/com/ku9/player/
+          else
+            echo "ERROR: MainActivity.kt not found in root!"
+            exit 1
+          fi
 
-      - name: Build APK
+          # 复制布局文件
+          if [ -f activity_main.xml ]; then
+            cp activity_main.xml android/app/src/main/res/layout/
+          else
+            echo "ERROR: activity_main.xml not found in root!"
+            exit 1
+          fi
+
+          # 复制其他必要的文件（如果有）
+          [ -f item_channel.xml ] && cp item_channel.xml android/app/src/main/res/layout/
+          [ -f item_group.xml ] && cp item_group.xml android/app/src/main/res/layout/
+
+          # 复制 values 资源
+          if [ -d values ]; then
+            cp -r values/* android/app/src/main/res/values/
+          else
+            echo "WARNING: values directory not found in root, creating default colors/strings/themes"
+            mkdir -p android/app/src/main/res/values
+            echo '<resources><color name="colorPrimary">#3F51B5</color></resources>' > android/app/src/main/res/values/colors.xml
+            echo '<resources><string name="app_name">KU9 Player</string></resources>' > android/app/src/main/res/values/strings.xml
+            echo '<resources><style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" /></resources>' > android/app/src/main/res/values/themes.xml
+          fi
+
+          # 复制 AndroidManifest.xml
+          if [ -f AndroidManifest.xml ]; then
+            cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          else
+            echo "ERROR: AndroidManifest.xml not found in root!"
+            exit 1
+          fi
+
+          # 列出复制后的目录结构，以便调试
+          echo "=== Files in android/app/src/main ==="
+          find android/app/src/main -type f
+
+      - name: Build with full logging
         run: |
           cd android
-          gradle assembleDebug --stacktrace --info --no-daemon
+          gradle clean assembleDebug --stacktrace --no-daemon > build.log 2>&1
+          if [ $? -ne 0 ]; then
+            echo "=== Build failed, showing last 300 lines of build.log ==="
+            tail -n 300 build.log
+            exit 1
+          else
+            echo "=== Build succeeded ==="
+          fi
 
-      - name: List APK files
+      - name: Find APK
         run: |
-          echo "=== Searching for APK files ==="
+          echo "=== Searching for APK ==="
           find android -name "*.apk" -type f
-          echo "=== Debug APK directory ==="
-          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not found"
-          echo "=== Release APK directory ==="
-          ls -la android/app/build/outputs/apk/release/ || echo "Directory not found"
-        continue-on-error: true
+        shell: bash
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
