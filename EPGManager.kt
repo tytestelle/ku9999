@@ -6,25 +6,23 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class EPGProgram(
-    val title: String,
-    val startTime: Date,
-    val endTime: Date,
-    val description: String = ""
-)
+data class EPGProgram(val title: String, val startTime: Date, val endTime: Date, val desc: String = "")
 
 class EPGManager {
-    fun loadEPG(url: String): List<EPGProgram> {
-        return try {
-            val inputStream = URL(url).openStream()
-            parseXML(inputStream)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    suspend fun loadEPG(url: String): List<EPGProgram> {
+        return if (url.isEmpty()) {
             // 模拟数据
             listOf(
-                EPGProgram("新闻联播", Date(), Date(System.currentTimeMillis() + 30*60*1000), "今日新闻"),
-                EPGProgram("天气预报", Date(System.currentTimeMillis() + 30*60*1000), Date(System.currentTimeMillis() + 60*60*1000), "明日天气")
+                EPGProgram("新闻联播", Date(), Date(System.currentTimeMillis() + 30*60*1000), "今日新闻")
             )
+        } else {
+            try {
+                val inputStream = URL(url).openStream()
+                parseXML(inputStream)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
         }
     }
 
