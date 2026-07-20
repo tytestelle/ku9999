@@ -31,101 +31,100 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Fix resources and build
+      - name: Fix gradle.properties and resources
         run: |
-          echo "🔧 修复资源文件..."
+          echo "🔧 强制修复 gradle.properties 和资源文件..."
+          
+          # 1. 强制生成 gradle.properties（覆盖已有）
+          cat > android/gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
+          EOF
+          echo "✅ gradle.properties 已生成"
 
-          # 创建必要的资源目录
-          mkdir -p android/app/src/main/res/layout
+          # 2. 确保资源文件存在
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/menu
 
-          # 如果 themes.xml 不存在则创建
-          if [ ! -f android/app/src/main/res/values/themes.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/themes.xml
-            echo '<resources>' >> android/app/src/main/res/values/themes.xml
-            echo '    <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />' >> android/app/src/main/res/values/themes.xml
-            echo '</resources>' >> android/app/src/main/res/values/themes.xml
-          fi
+          # themes.xml
+          cat > android/app/src/main/res/values/themes.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.KU9Player" parent="Theme.AppCompat.Light.DarkActionBar" />
+          </resources>
+          EOF
 
-          # 如果 attrs.xml 不存在则创建
-          if [ ! -f android/app/src/main/res/values/attrs.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/attrs.xml
-            echo '<resources>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="use_controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="controller" format="boolean" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="player" format="reference" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="surface_type" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="surface_view" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="texture_view" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="spherical_view" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="video_decoder_gl_surface_view" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '    <attr name="resize_mode" format="enum">' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fit" value="0" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_width" value="1" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fixed_height" value="2" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="fill" value="3" />' >> android/app/src/main/res/values/attrs.xml
-            echo '        <enum name="zoom" value="4" />' >> android/app/src/main/res/values/attrs.xml
-            echo '    </attr>' >> android/app/src/main/res/values/attrs.xml
-            echo '</resources>' >> android/app/src/main/res/values/attrs.xml
-          fi
+          # attrs.xml
+          cat > android/app/src/main/res/values/attrs.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <attr name="use_controller" format="boolean" />
+              <attr name="controller" format="boolean" />
+              <attr name="player" format="reference" />
+              <attr name="surface_type" format="enum">
+                  <enum name="surface_view" value="0" />
+                  <enum name="texture_view" value="1" />
+                  <enum name="spherical_view" value="2" />
+                  <enum name="video_decoder_gl_surface_view" value="3" />
+              </attr>
+              <attr name="resize_mode" format="enum">
+                  <enum name="fit" value="0" />
+                  <enum name="fixed_width" value="1" />
+                  <enum name="fixed_height" value="2" />
+                  <enum name="fill" value="3" />
+                  <enum name="zoom" value="4" />
+              </attr>
+          </resources>
+          EOF
 
-          # 如果 strings.xml 不存在则创建
-          if [ ! -f android/app/src/main/res/values/strings.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/strings.xml
-            echo '<resources>' >> android/app/src/main/res/values/strings.xml
-            echo '    <string name="app_name">KU9 Player</string>' >> android/app/src/main/res/values/strings.xml
-            echo '</resources>' >> android/app/src/main/res/values/strings.xml
-          fi
+          # strings.xml
+          cat > android/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">KU9 Player</string>
+          </resources>
+          EOF
 
-          # 如果 colors.xml 不存在则创建
-          if [ ! -f android/app/src/main/res/values/colors.xml ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/values/colors.xml
-            echo '<resources>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorPrimary">#3F51B5</color>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorPrimaryDark">#303F9F</color>' >> android/app/src/main/res/values/colors.xml
-            echo '    <color name="colorAccent">#FF4081</color>' >> android/app/src/main/res/values/colors.xml
-            echo '</resources>' >> android/app/src/main/res/values/colors.xml
-          fi
+          # colors.xml
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#3F51B5</color>
+              <color name="colorPrimaryDark">#303F9F</color>
+              <color name="colorAccent">#FF4081</color>
+          </resources>
+          EOF
 
-          # 如果 bottom_nav_menu.xml 不存在则创建
-          if [ ! -f android/app/src/main/res/menu/bottom_nav_menu.xml ]; then
-            mkdir -p android/app/src/main/res/menu
-            echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '<menu xmlns:android="http://schemas.android.com/apk/res/android">' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:id="@+id/nav_channels"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:icon="@android:drawable/ic_menu_view"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:title="频道" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:id="@+id/nav_epg"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:icon="@android:drawable/ic_menu_agenda"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:title="节目单" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '    <item' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:id="@+id/nav_settings"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:icon="@android:drawable/ic_menu_preferences"' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '        android:title="设置" />' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-            echo '</menu>' >> android/app/src/main/res/menu/bottom_nav_menu.xml
-          fi
+          # bottom_nav_menu.xml
+          mkdir -p android/app/src/main/res/menu
+          cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:id="@+id/nav_channels"
+                  android:icon="@android:drawable/ic_menu_view"
+                  android:title="频道" />
+              <item android:id="@+id/nav_epg"
+                  android:icon="@android:drawable/ic_menu_agenda"
+                  android:title="节目单" />
+              <item android:id="@+id/nav_settings"
+                  android:icon="@android:drawable/ic_menu_preferences"
+                  android:title="设置" />
+          </menu>
+          EOF
 
-          # 修复 AndroidManifest.xml（移除图标引用）
+          # 3. 修复 AndroidManifest.xml（移除图标引用）
           if [ -f android/app/src/main/AndroidManifest.xml ]; then
             sed -i 's/ package="com\.ku9\.player"//' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:icon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
             sed -i 's/ android:roundIcon="@mipmap\/[^"]*"//g' android/app/src/main/AndroidManifest.xml
           fi
 
-          # 确保 gradle.properties 存在
-          if [ ! -f android/gradle.properties ]; then
-            echo "android.useAndroidX=true" > android/gradle.properties
-            echo "android.enableJetifier=true" >> android/gradle.properties
-            echo "org.gradle.jvmargs=-Xmx2048m" >> android/gradle.properties
-          fi
+          echo "✅ 所有资源修复完成"
 
-          echo "✅ 资源修复完成，开始构建..."
-
-          # 下载并配置 Gradle
+      - name: Build APK with Gradle
+        id: build
+        run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
