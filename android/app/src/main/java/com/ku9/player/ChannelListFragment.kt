@@ -10,12 +10,18 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class ChannelListFragment : Fragment() {
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         return inflater.inflate(R.layout.fragment_channel_list, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
         val rvChannels = view.findViewById<RecyclerView>(R.id.rv_channels)
         rvChannels.layoutManager = LinearLayoutManager(requireContext())
 
@@ -25,9 +31,11 @@ class ChannelListFragment : Fragment() {
             Channel("2", "CCTV-2", "http://example.com/2"),
             Channel("3", "CCTV-3", "http://example.com/3")
         )
-        val adapter = ChannelAdapter(channels) { channel ->
+
+        val adapter = ChannelAdapter { channel ->
             Toast.makeText(requireContext(), "播放: ${channel.name}", Toast.LENGTH_SHORT).show()
         }
+        adapter.submitList(channels)
         rvChannels.adapter = adapter
     }
 }
