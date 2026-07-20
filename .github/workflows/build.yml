@@ -1,64 +1,87 @@
-# .github/workflows/build.yml
-name: Android CI
+#!/bin/bash
+# fix_build.sh - 自动修复酷9播放器构建错误
+set -e
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+echo "=========================================="
+echo "  🔧 开始执行构建修复脚本"
+echo "=========================================="
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# ---------- 1. 修复 app/build.gradle ----------
+APP_GRADLE="android/app/build.gradle"
 
-    steps:
-      - uses: actions/checkout@v4
+# 启用 ViewBinding
+if ! grep -q "viewBinding {" "$APP_GRADLE"; then
+    echo "📱 启用 ViewBinding..."
+    sed -i '/android {/a\
+    buildFeatures {\
+        viewBinding true\
+    }' "$APP_GRADLE"
+fi
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+# 添加缺失依赖（如果不存在）
+add_dependency() {
+    local dep="$1"
+    if ! grep -q "$dep" "$APP_GRADLE"; then
+        echo "📦 添加依赖: $dep"
+        sed -i "/dependencies {/a\\
+    implementation \"$dep\"" "$APP_GRADLE"
+    fi
+}
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+add_dependency "com.squareup.okhttp3:okhttp:4.12.0"
+add_dependency "com.squareup.okhttp3:logging-interceptor:4.12.0"
+add_dependency "androidx.media3:media3-exoplayer:1.3.1"
+add_dependency "androidx.media3:media3-exoplayer-hls:1.3.1"
+add_dependency "androidx.media3:media3-ui:1.3.1"
+add_dependency "androidx.media3:media3-common:1.3.1"
+add_dependency "androidx.recyclerview:recyclerview:1.3.2"
 
-      # 安装 Gradle（因为仓库里没有 gradlew）
-      - name: Install Gradle
-        run: |
-          wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
-          unzip -q gradle-8.4-bin.zip
-          echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
+# ---------- 2. 创建缺失的 EpgProgram 类 ----------
+EPG_CLASS="android/app/src/main/java/com/ku9/player/EpgProgram.kt"
+if [ ! -f "$EPG_CLASS" ]; then
+    echo "📄 创建缺失的 EpgProgram.kt..."
+    mkdir -p "$(dirname "$EPG_CLASS")"
+    cat > "$EPG_CLASS" << 'EOF'
+package com.ku9.player
 
-      # 在 android/ 目录下生成 gradlew
-      - name: Generate Gradle Wrapper
-        run: |
-          cd android
-          gradle wrapper
+data class EpgProgram(
+    val title: String,
+    val start: String,
+    val end: String,
+    val desc: String = ""
+)
+EOF
+fi
 
-      # 现在 gradlew 存在了，赋予执行权限
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+# ---------- 3. 修复 ParserManager 中 M3UParser 调用 ----------
+PARSER_MANAGER="android/app/src/main/java/com/ku9/player/ParserManager.kt"
+if [ -f "$PARSER_MANAGER" ]; then
+    echo "🔧 修复 ParserManager 中 M3UParser 调用..."
+    # 将 M3UParser() 改为 M3UParser().parse() 或使用正确调用
+    sed -i 's/M3UParser()/M3UParser().parse()/g' "$PARSER_MANAGER"
+fi
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+# ---------- 4. 修复 SourceManager 中 Channel 构造参数（移除 logo） ----------
+SOURCE_MANAGER="android/app/src/main/java/com/ku9/player/SourceManager.kt"
+if [ -f "$SOURCE_MANAGER" ]; then
+    echo "🔧 修复 SourceManager 中 Channel 构造参数..."
+    # 删除 "logo=..." 参数（如果存在）
+    sed -i 's/, logo=[^,)]*//g' "$SOURCE_MANAGER"
+fi
 
-      - name: Build Debug APK
-        run: |
-          cd android
-          ./gradlew assembleDebug
+# ---------- 5. 修复 ChannelAdapter 构造函数（增加 channels 参数） ----------
+CHANNEL_ADAPTER="android/app/src/main/java/com/ku9/player/ChannelAdapter.kt"
+if [ -f "$CHANNEL_ADAPTER" ]; then
+    echo "🔧 尝试修复 ChannelAdapter 构造函数..."
+    # 将 class ChannelAdapter(private val onItemClick: (Channel) -> Unit)
+    # 改为 class ChannelAdapter(private val channels: List<Channel>, private val onItemClick: (Channel) -> Unit)
+    sed -i 's/class ChannelAdapter(private val onItemClick: (Channel) -> Unit)/class ChannelAdapter(private val channels: List<Channel>, private val onItemClick: (Channel) -> Unit)/' "$CHANNEL_ADAPTER"
+fi
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
+# ---------- 6. 可选：清除重复类定义（需要人工确认，这里仅警告） ----------
+# echo "⚠️ 检查是否存在重复类 ChannelListFragment，请手动处理"
+
+echo "=========================================="
+echo "  ✅ 修复脚本执行完毕"
+echo "  ⚠️ 若仍有错误，请查看详细日志"
+echo "=========================================="
