@@ -23,7 +23,7 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      - name: Prepare standard Android project (recreate sources)
+      - name: Prepare standard Android project
         run: |
           # 清理并重建标准目录
           rm -rf android/app/src/main/java
@@ -106,21 +106,39 @@ jobs:
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
           echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          echo "Project prepared."
+          # 列出复制后的文件结构，用于调试
+          echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
+          ls -la android/app/src/main/java/com/ku9/player/
+          echo "=== Files in android/app/src/main/res/layout/ ==="
+          ls -la android/app/src/main/res/layout/
+          echo "=== Files in android/app/src/main/res/values/ ==="
+          ls -la android/app/src/main/res/values/
+          echo "AndroidManifest.xml ==="
+          cat android/app/src/main/AndroidManifest.xml
 
       - name: Install Gradle 8.2 and build
+        id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          # 强制清理并构建，输出任务执行详情
+          # 强制清理并构建
           gradle clean assembleDebug --stacktrace --info --no-daemon --no-build-cache 2>&1 | tee build.log
+          BUILD_STATUS=$?
+          # 输出最后 200 行日志
+          echo "=== Last 200 lines of build log ==="
+          tail -n 200 build.log
           # 检查 APK 是否存在
-          echo "=== Build directory contents ==="
-          find app/build -type f 2>/dev/null || echo "No build directory"
-          echo "=== APK search ==="
-          find app/build -name "*.apk" -type f || echo "No APK found"
+          if [ ! -f app/build/outputs/apk/debug/*.apk ]; then
+            echo "APK not found! Listing build directory contents..."
+            find app/build -type f 2>/dev/null || echo "No build directory"
+            echo "Build log tail (full) above."
+            exit 1
+          fi
+          # 如果 APK 存在，则打印路径
+          echo "APK found:"
+          ls -la app/build/outputs/apk/debug/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -128,4 +146,4 @@ jobs:
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error  # 改为 error，确保没有 APK 时构建失败
+          if-no-files-found: error  # 设置为 error，确保没有 APK 时失败
