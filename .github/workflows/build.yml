@@ -23,7 +23,6 @@ jobs:
         with:
           packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
-      # 可选：缓存 Gradle 依赖，加速构建
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -32,9 +31,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Prepare source and resources
+      - name: Prepare source, resources and Gradle scripts
         run: |
-          # 清理并创建标准目录（包含完整包路径）
+          # ------------------- 清理并创建目录 -------------------
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/res
           
@@ -47,7 +46,7 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # 复制所有 Kotlin 文件到包目录（扁平化，所有类在同一包下）
+          # ------------------- 复制 Kotlin 源文件 -------------------
           echo "=== Copying Kotlin files ==="
           find . -maxdepth 2 -name "*.kt" ! -path "./android/*" -exec cp {} android/app/src/main/java/com/ku9/player/ \;
           for dir in data parser player ui utils; do
@@ -56,7 +55,7 @@ jobs:
             fi
           done
 
-          # 复制布局文件
+          # ------------------- 复制布局文件 -------------------
           echo "=== Copying layout files ==="
           for layout in activity_main.xml item_channel.xml item_group.xml; do
             if [ -f "$layout" ]; then
@@ -64,7 +63,7 @@ jobs:
             fi
           done
 
-          # 创建资源文件
+          # ------------------- 创建资源文件 -------------------
           echo "=== Creating resource files ==="
           cat > android/app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -89,7 +88,7 @@ jobs:
           </resources>
           EOF
 
-          # 创建 AndroidManifest.xml
+          # ------------------- 创建 AndroidManifest.xml -------------------
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -113,52 +112,138 @@ jobs:
           </manifest>
           EOF
 
-          # 创建空白的 ic_launcher 占位
+          # ------------------- 创建图标占位 -------------------
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-hdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-mdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxhdpi/ic_launcher.xml
           echo "<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\" />" > android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.xml
 
-          # 验证文件
-          echo "=== Files in android/app/src/main/java/com/ku9/player/ ==="
-          ls -la android/app/src/main/java/com/ku9/player/
+          # ------------------- 生成必要的 Gradle 构建脚本 -------------------
+          echo "=== Creating Gradle scripts ==="
+          # 1) settings.gradle (位于 android/ 目录)
+          cat > android/settings.gradle << 'EOF'
+          rootProject.name = "ku9999"
+          include ':app'
+          EOF
 
-      - name: Install Gradle 8.2 and build
+          # 2) 根目录 build.gradle (位于 android/ 目录)
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.1'
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          task clean(type: Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
+
+          # 3) app 模块 build.gradle (位于 android/app/)
+          cat > android/app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace 'com.ku9.player'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'com.ku9.player'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.9.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              // 如需添加更多依赖，可在此处补充
+          }
+          EOF
+
+          # 创建空的 proguard-rules.pro (避免报错)
+          touch android/app/proguard-rules.pro
+
+          # ------------------- 验证文件结构 -------------------
+          echo "=== Directory structure under android/ ==="
+          find android -type f | sort
+
+      - name: Build APK with Gradle
         id: build
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
           export PATH="$PWD/gradle-8.2/bin:$PATH"
           cd android
-          # 使用 --stacktrace 和 --info 输出详细日志，方便调试
-          gradle clean assembleDebug --stacktrace --info --no-daemon --no-build-cache 2>&1 | tee build.log
+          
+          # 打印项目结构（调试）
+          echo "=== Available Gradle tasks ==="
+          gradle tasks --no-daemon
+          
+          echo "=== Starting build ==="
+          gradle clean assembleDebug --stacktrace --no-daemon --no-build-cache 2>&1 | tee build.log
           BUILD_STATUS=$?
-          # 打印完整构建日志（Action 界面可查看所有输出）
+          
           echo "=== Full build log ==="
           cat build.log
+          
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "Gradle build failed with exit code $BUILD_STATUS"
             exit $BUILD_STATUS
           fi
-          # 使用 find 搜索所有 APK，避免通配符陷阱
-          echo "=== Searching for APK files ==="
+          
+          # 列出所有生成的 APK
+          echo "=== Searching for generated APK files ==="
           APK_COUNT=$(find app/build -type f -name "*.apk" | wc -l)
           echo "Found $APK_COUNT APK(s):"
           find app/build -type f -name "*.apk" -ls
+          
           if [ $APK_COUNT -eq 0 ]; then
-            echo "No APK generated! Listing app/build contents:"
+            echo "ERROR: No APK was generated!"
+            echo "Listing entire app/build directory:"
             find app/build -type f 2>/dev/null || echo "build directory not found"
             exit 1
           fi
-          # 记录 APK 所在目录（可选）
-          echo "apk_dir=app/build/outputs/apk" >> $GITHUB_ENV
+          
+          # 记录 APK 路径（用于上传）
+          echo "apk_path=app/build/outputs/apk" >> $GITHUB_ENV
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: always()   # 即使构建失败也尝试上传（如果有）
+        if: always()
         with:
           name: app-debug
-          # 使用通配符匹配所有 APK（路径相对于工作区根目录）
           path: android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error   # 若没有 APK 则明确失败
+          if-no-files-found: error
