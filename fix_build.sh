@@ -1,5 +1,5 @@
 #!/bin/bash
-# fix_build.sh - 完整替换为 witv 源码（包含所有 Gradle 配置）
+# fix_build.sh - 完整替换为 witv 源码（同时升级 Gradle wrapper）
 set -e
 
 echo "=========================================="
@@ -53,10 +53,18 @@ if [ -f "android/settings.gradle" ]; then
     sed -i "s/rootProject.name = 'WiTV'/rootProject.name = 'Ku9Player'/g" android/settings.gradle
 fi
 
-# 9. 给 gradlew 添加执行权限
+# 9. 升级 Gradle wrapper 版本（从 8.4 到 8.9）
+echo "⬆️ 升级 Gradle wrapper 到 8.9..."
+if [ -f "android/gradle/wrapper/gradle-wrapper.properties" ]; then
+    sed -i 's/gradle-8.4-all.zip/gradle-8.9-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+    # 如果找不到 8.4，也可能直接替换
+    sed -i 's/gradle-8\.[0-9]*-all.zip/gradle-8.9-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+fi
+
+# 10. 给 gradlew 添加执行权限
 chmod +x android/gradlew
 
-# 10. 清理构建缓存
+# 11. 清理构建缓存
 rm -rf android/build android/app/build
 
 echo "=========================================="
@@ -68,6 +76,7 @@ echo "  - Gradle 配置: android/build.gradle, android/settings.gradle"
 echo "  - 应用模块: android/app/"
 echo "  - 包名: com.ku9.player"
 echo "  - 应用名: 酷9播放器"
+echo "  - Gradle wrapper: 已升级到 8.9"
 echo ""
 echo "  现在执行: cd android && ./gradlew assembleDebug"
 echo "=========================================="
