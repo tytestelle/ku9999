@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 终极稳定版（捕获所有运行时异常）
+# fix_build.sh - 终极稳定版（内置测试源，全异常捕获）
 set -e
 
 echo "=========================================="
-echo "  🚀 终极稳定重建（修正运行时闪退）"
+echo "  🚀 终极稳定重建（内置测试源）"
 echo "=========================================="
 
 # 清理旧文件
@@ -67,7 +67,7 @@ dependencies {
 }
 EOF
 
-# ---------- AndroidManifest.xml (添加硬件加速) ----------
+# ---------- AndroidManifest.xml ----------
 cat > android/app/src/main/AndroidManifest.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -99,7 +99,7 @@ cat > android/app/src/main/AndroidManifest.xml << 'EOF'
 </manifest>
 EOF
 
-# ---------- 资源文件（不变） ----------
+# ---------- 资源文件 ----------
 cat > android/app/src/main/res/values/strings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -367,10 +367,10 @@ cat > android/app/src/main/res/drawable/ic_channel_placeholder.xml << 'EOF'
 </vector>
 EOF
 
-# ---------- Kotlin 源文件（完全异常捕获） ----------
+# ---------- Kotlin 源文件 ----------
 SRC="android/app/src/main/java/com/ku9/player"
 
-# Ku9Application (已包含全局异常捕获)
+# Ku9Application
 cat > "$SRC/Ku9Application.kt" << 'EOF'
 package com.ku9.player
 import android.app.Application
@@ -405,7 +405,6 @@ class Ku9Application : Application() {
 }
 EOF
 
-# Channel, Group, EpgProgram 不变
 cat > "$SRC/Channel.kt" << 'EOF'
 package com.ku9.player
 data class Channel(
@@ -441,7 +440,6 @@ data class EpgProgram(
 )
 EOF
 
-# M3UParser, TXTParser 不变
 cat > "$SRC/M3UParser.kt" << 'EOF'
 package com.ku9.player
 class M3UParser {
@@ -495,7 +493,6 @@ class TXTParser {
 }
 EOF
 
-# EPGManager 不变
 cat > "$SRC/EPGManager.kt" << 'EOF'
 package com.ku9.player
 import kotlinx.coroutines.Dispatchers
@@ -536,7 +533,7 @@ class EPGManager {
 }
 EOF
 
-# ---------- 关键：SourceManager (不加载内置源，启动时为空) ----------
+# ---------- 关键：SourceManager 内置测试源 ----------
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
 import android.content.Context
@@ -555,10 +552,10 @@ class SourceManager(private val context: Context) {
     private var _groups: List<Group> = emptyList()
     val groups: List<Group> get() = _groups
 
-    // 不再在 init 中自动加载网络源，避免启动时网络异常
     init {
-        // 可以在这里添加本地示例，但为了稳定，保持空
-        // 用户可通过设置页添加源
+        // 内置稳定测试源（Sintel 公开流），确保启动后有内容
+        _sources.add(Source("Sintel测试", "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8", Source.Type.M3U))
+        _sources.add(Source("BigBuckBunny", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", Source.Type.M3U))
     }
 
     suspend fun addSource(name: String, url: String, type: Source.Type): Boolean {
@@ -605,7 +602,7 @@ class SourceManager(private val context: Context) {
 }
 EOF
 
-# PlayerManager 增加 try-catch
+# PlayerManager (稳定)
 cat > "$SRC/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 import android.content.Context
@@ -649,7 +646,6 @@ class PlayerManager(private val context: Context) {
                 p.addListener(listener)
                 player = p
             } catch (e: Exception) {
-                // 如果 ExoPlayer 初始化失败，抛出运行时异常，由全局捕获
                 throw RuntimeException("Player init failed", e)
             }
         }
@@ -667,7 +663,6 @@ class PlayerManager(private val context: Context) {
             p.prepare()
             p.play()
         } catch (e: Exception) {
-            // 播放失败不抛出，只记录
             android.util.Log.e("PlayerManager", "Play failed", e)
         }
     }
@@ -695,7 +690,7 @@ class PlayerManager(private val context: Context) {
 }
 EOF
 
-# ChannelAdapter, GroupAdapter, EpgAdapter 不变
+# ChannelAdapter, GroupAdapter, EpgAdapter 保持不变
 cat > "$SRC/ChannelAdapter.kt" << 'EOF'
 package com.ku9.player
 import android.view.LayoutInflater
@@ -787,7 +782,7 @@ class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 }
 EOF
 
-# MainActivity (try-catch 包裹 onCreate)
+# MainActivity (带异常捕获)
 cat > "$SRC/MainActivity.kt" << 'EOF'
 package com.ku9.player
 import android.os.Bundle
@@ -823,7 +818,7 @@ class MainActivity : AppCompatActivity() {
             switchFragment(channelFragment)
         } catch (e: Exception) {
             Toast.makeText(this, "启动失败: ${e.message}", Toast.LENGTH_LONG).show()
-            throw e // 让全局异常捕获记录
+            throw e
         }
     }
     private fun switchFragment(frag: Fragment) {
@@ -854,7 +849,7 @@ class MainActivity : AppCompatActivity() {
 }
 EOF
 
-# ChannelListFragment 捕获 loadSource 异常
+# ChannelListFragment（自动加载内置源）
 cat > "$SRC/ChannelListFragment.kt" << 'EOF'
 package com.ku9.player
 import android.os.Bundle
@@ -907,6 +902,7 @@ class ChannelListFragment : Fragment() {
             override fun onQueryTextChange(q: String?) = search(q ?: "").let { true }
         })
 
+        // 自动加载第一个源（内置源）
         loadSource()
 
         rv.setOnLongClickListener {
@@ -920,11 +916,11 @@ class ChannelListFragment : Fragment() {
     fun loadSource() {
         lifecycleScope.launch {
             try {
-                // 如果没有任何源，提示添加
                 if (sourceManager.sources.isEmpty()) {
                     Toast.makeText(requireContext(), "请先在设置页添加直播源", Toast.LENGTH_LONG).show()
                     return@launch
                 }
+                // 默认加载第一个源（索引0）
                 val success = sourceManager.loadSource(0)
                 if (success) {
                     allChannels = sourceManager.getAllChannels()
@@ -934,6 +930,7 @@ class ChannelListFragment : Fragment() {
                 }
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "加载出错: ${e.message}", Toast.LENGTH_LONG).show()
+                e.printStackTrace()
             }
         }
     }
@@ -959,18 +956,7 @@ class ChannelListFragment : Fragment() {
 }
 EOF
 
-# EPGFragment, SettingsFragment, PlayerActivity 不变（但加了一些 try-catch）
-# 此处省略（与之前相同，但为了保证完整，我会全部包括，但受长度限制，后续部分用已有内容，但用户可能直接复制本脚本，所以需要全部提供）
-
-# 由于篇幅，我继续写余下的文件（但为节省时间，使用之前的内容，确保它们存在）
-
-# 后续内容与之前相同，但为了完整，我会将之前的 EPGFragment, SettingsFragment, PlayerActivity 内容复制过来，但不重复展开，因为脚本已经很长，但用户可以自行替换。
-
-# 为避免截断，我直接输出完整脚本的最后部分。
-
-# 但用户可能需要的是完整文件，所以我将剩余文件内容在此简化但确保存在。
-
-# EPGFragment (之前已有)
+# EPGFragment, SettingsFragment, PlayerActivity (与之前相同)
 cat > "$SRC/EPGFragment.kt" << 'EOF'
 package com.ku9.player
 import android.os.Bundle
@@ -1132,11 +1118,7 @@ EOF
 rm -rf android/app/build
 
 echo "=========================================="
-echo "  ✅ 稳定版重建完成！"
-echo "  修改点："
-echo "   - SourceManager 不再自动加载网络源，避免启动时网络异常"
-echo "   - 所有关键方法增加 try-catch"
-echo "   - 添加硬件加速"
-echo "   - 全局异常捕获并写入文件"
+echo "  ✅ 终极稳定版重建完成！"
+echo "  内置了两个测试源，启动后自动加载第一个。"
 echo "  现在执行: cd android && ./gradlew assembleDebug"
 echo "=========================================="
