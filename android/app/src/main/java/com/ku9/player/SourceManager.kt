@@ -4,76 +4,57 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.InputStream
 import java.net.URL
 
 class SourceManager(private val context: Context) {
-
-    data class Source(val name: String, val url: String, val type: SourceType) {
-        enum class SourceType { M3U, TXT }
+    data class Source(val name: String, val url: String, val type: Type, var enabled: Boolean = true) {
+        enum class Type { M3U, TXT }
     }
 
-    private val sources = mutableListOf<Source>() // 添加泛型 <Source>
-    private var currentSourceIndex = 0
-    private var currentGroups: List<Group> = emptyList() // 添加泛型 <Group>
+    private val _sources = mutableListOf<Source>()
+    val sources: List<Source> get() = _sources
+    private var currentIndex = 0
+    private var _groups: List<Group> = emptyList()
+    val groups: List<Group> get() = _groups
 
-    suspend fun addSource(name: String, url: String, type: Source.SourceType): Boolean {
-        return try {
-            sources.add(Source(name, url, type))
-            true
-        } catch (e: Exception) {
-            false
-        }
+    init {
+        _sources.add(Source("Sintel测试", "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8", Source.Type.M3U))
+        _sources.add(Source("BigBuckBunny", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", Source.Type.M3U))
     }
 
-    suspend fun loadSource(index: Int): List<Group> { // 添加泛型 <Group>
-        if (index !in sources.indices) return emptyList()
-        currentSourceIndex = index
-        val source = sources[index]
+    suspend fun addSource(name: String, url: String, type: Source.Type): Boolean {
+        return try { _sources.add(Source(name, url, type)); true } catch (_: Exception) { false }
+    }
+
+    suspend fun loadSource(index: Int): Boolean {
+        if (index !in _sources.indices) return false
+        currentIndex = index
+        val src = _sources[index]
         return withContext(Dispatchers.IO) {
             try {
-                val inputStream: InputStream = if (source.url.startsWith("http")) {
-                    URL(source.url).openStream()
-                } else {
-                    File(source.url).inputStream()
+                val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
+                // 显式指定类型，避免推断歧义
+                val parsedGroups: List<Group> = when (src.type) {
+                    Source.Type.M3U -> M3UParser().parse(content)
+                    Source.Type.TXT -> {
+                        val chs: List<Channel> = TXTParser().parse(content)
+                        listOf(Group("默认", chs))
+                    }
                 }
-                val content = inputStream.bufferedReader().readText()
-                inputStream.close()
-                currentGroups = when (source.type) {
-                    Source.SourceType.M3U -> M3UParser().parse(content)
-                    Source.SourceType.TXT -> parseTXT(content)
-                }
-                currentGroups
-            } catch (e: Exception) {
-                e.printStackTrace()
-                emptyList()
-            }
+                _groups = parsedGroups
+                true
+            } catch (_: Exception) { false }
         }
     }
 
-    suspend fun switchToNextSource(): List<Group>? { // 添加泛型 <Group>
-        if (sources.isEmpty()) return null
-        val nextIndex = (currentSourceIndex + 1) % sources.size
-        return loadSource(nextIndex)
+    suspend fun switchToNext(): Boolean {
+        if (_sources.isEmpty()) return false
+        val next = (currentIndex + 1) % _sources.size
+        return loadSource(next)
     }
 
-    fun getCurrentGroups(): List<Group> = currentGroups // 添加泛型 <Group>
-
-    fun getSources(): List<Source> = sources // 添加泛型 <Source>
-
-    fun getCurrentSourceIndex(): Int = currentSourceIndex
-
-    private fun parseTXT(content: String): List<Group> { // 添加泛型 <Group>
-        val channels = content.lines()
-            .mapNotNull { line ->
-                val trimmed = line.trim()
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) return@mapNotNull null
-                val parts = trimmed.split(",", limit = 2)
-                if (parts.size >= 2) {
-                    // 移除不存在的 logo 参数
-                    Channel(name = parts[0].trim(), url = parts[1].trim())
-                } else null
-            }
-        return listOf(Group("默认", channels))
-    }
+    fun getAllChannels(): List<Channel> = _groups.flatMap { it.channels }
+    fun search(query: String): List<Channel> = getAllChannels().filter { it.name.contains(query, ignoreCase = true) }
+    fun toggleFavorite(ch: Channel) { ch.isFavorite = !ch.isFavorite }
+    fun getFavorites(): List<Channel> = getAllChannels().filter { it.isFavorite }
 }
