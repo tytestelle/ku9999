@@ -1,77 +1,63 @@
 #!/bin/bash
-# fix_build.sh - 重建干净的 AndroidManifest.xml
+# fix_build.sh - 修复资源错误（移除图标引用）
 set -e
 
 echo "=========================================="
-echo "  🔧 重建 AndroidManifest.xml"
+echo "  🔧 修复 AndroidManifest 图标引用"
 echo "=========================================="
 
-# 删除旧的 AndroidManifest.xml（如果存在）
-rm -f android/app/src/main/AndroidManifest.xml
+MANIFEST="android/app/src/main/AndroidManifest.xml"
 
-# 创建新的 AndroidManifest.xml（正确格式）
-cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ku9.player">
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-    <application
-        android:name=".Ku9Application"
-        android:allowBackup="true"
-        android:icon="@drawable/ic_launcher_foreground"
-        android:label="酷9播放器"
-        android:roundIcon="@drawable/ic_launcher_foreground"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.Ku9Player"
-        android:usesCleartextTraffic="true">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
+# 确保 drawable 存在（备选）
+mkdir -p android/app/src/main/res/drawable
+cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.3"
+        android:scaleY="0.3"
+        android:translateX="37.8"
+        android:translateY="37.8">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,27 L81,54 L54,81 L27,54 Z" />
+        <path
+            android:fillColor="#FF0000"
+            android:pathData="M54,27 L81,54 L54,81 L27,54 Z" />
+    </group>
+</vector>
 EOF
 
-# 确保必要的资源文件存在（如果缺失）
-mkdir -p android/app/src/main/res/values
-cat > android/app/src/main/res/values/colors.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-</resources>
-EOF
+# 备份原 Manifest
+cp "$MANIFEST" "$MANIFEST.bak"
 
-cat > android/app/src/main/res/values/themes.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.Ku9Player" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-    </style>
-</resources>
-EOF
+# 移除 android:icon 和 android:roundIcon 属性（如果有）
+sed -i 's/ android:icon="[^"]*"//g' "$MANIFEST"
+sed -i 's/ android:roundIcon="[^"]*"//g' "$MANIFEST"
+
+# 确保 application 标签有 name 和 theme，如果没有添加
+if ! grep -q 'android:name=".Ku9Application"' "$MANIFEST"; then
+    sed -i 's/<application /<application android:name=".Ku9Application" /' "$MANIFEST"
+fi
+
+# 确保 usesCleartextTraffic 为 true
+if ! grep -q 'android:usesCleartextTraffic="true"' "$MANIFEST"; then
+    sed -i 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
+fi
+
+# 添加网络权限（如果缺失）
+if ! grep -q "INTERNET" "$MANIFEST"; then
+    sed -i '/<manifest/a\
+    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
+fi
+
+# 清理构建缓存
+rm -rf android/app/build
 
 echo "=========================================="
-echo "  ✅ AndroidManifest.xml 已重建"
-echo "  现在可以重新构建"
+echo "  ✅ 已移除图标引用，创建默认 drawable"
+echo "  重新构建将成功"
 echo "=========================================="
