@@ -1,12 +1,12 @@
 #!/bin/bash
-# fix_build.sh - 完整重建酷9播放器（包含所有功能）
+# fix_build.sh - 完整重建酷9播放器项目（所有功能）
 set -e
 
 echo "=========================================="
 echo "  🚀 重建完整酷9播放器项目"
 echo "=========================================="
 
-# ---------- 清理旧文件（但保留 gradle 等） ----------
+# ---------- 清理旧文件 ----------
 rm -rf android/app/src/main/java/com/ku9/player
 rm -rf android/app/src/main/res/layout
 rm -rf android/app/src/main/res/menu
@@ -256,42 +256,150 @@ cat > android/app/src/main/res/layout/fragment_epg.xml << 'EOF'
 </LinearLayout>
 EOF
 
+# ----- fragment_settings.xml（已添加 xmlns:app）-----
 cat > android/app/src/main/res/layout/fragment_settings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="播放设置" android:textSize="20sp" android:textStyle="bold" />
-        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/hardware_decoder" />
-                    <Switch android:id="@+id/switch_decoder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="播放设置"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/hardware_decoder" />
+                    <Switch
+                        android:id="@+id/switch_decoder"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
                 </LinearLayout>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="12dp">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/aspect_ratio" />
-                    <Spinner android:id="@+id/spinner_aspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:entries="@array/aspect_ratio_options" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="12dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/aspect_ratio" />
+                    <Spinner
+                        android:id="@+id/spinner_aspect"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:entries="@array/aspect_ratio_options" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="高级功能" android:textSize="20sp" android:textStyle="bold" />
-        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <EditText android:id="@+id/edit_js_script" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/js_script" android:minLines="3" />
-                <EditText android:id="@+id/edit_headers" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/custom_headers" />
-                <EditText android:id="@+id/edit_host" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/host_config" />
-                <Button android:id="@+id/btn_save_advanced" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="保存" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="高级功能"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <EditText
+                    android:id="@+id/edit_js_script"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/js_script"
+                    android:minLines="3" />
+                <EditText
+                    android:id="@+id/edit_headers"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/custom_headers" />
+                <EditText
+                    android:id="@+id/edit_host"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/host_config" />
+                <Button
+                    android:id="@+id/btn_save_advanced"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="保存" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="本地源管理" android:textSize="20sp" android:textStyle="bold" />
-        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                <Button android:id="@+id/btn_local_file" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/local_file" />
-                <Button android:id="@+id/btn_offline_cache" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/offline_cache" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="本地源管理"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <Button
+                    android:id="@+id/btn_local_file"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/local_file" />
+                <Button
+                    android:id="@+id/btn_offline_cache"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/offline_cache" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>
@@ -331,7 +439,6 @@ cat > android/app/src/main/res/layout/item_epg.xml << 'EOF'
 EOF
 
 # ---------- 6. Drawable 资源 ----------
-# 生成简易矢量图标
 for icon in channels epg settings add favorite favorite_border refresh channel_placeholder launcher_foreground; do
     case $icon in
         channels) path="M4,6h16v2H4V6zm0,5h16v2H4v-2zm0,5h16v2H4v-2z" ;;
@@ -352,7 +459,7 @@ for icon in channels epg settings add favorite favorite_border refresh channel_p
 EOF
 done
 
-# 单独修正 launcher_foreground 为 108dp
+# 修正 launcher_foreground 为 108dp
 cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
@@ -1165,13 +1272,6 @@ rm -rf android/app/build
 
 echo "=========================================="
 echo "  ✅ 酷9播放器完整项目已重建！"
-echo "  功能列表："
-echo "  ✓ 直播源管理（M3U/TXT，多源切换）"
-echo "  ✓ 播放（ExoPlayer，HLS，硬件/软件解码，比例）"
-echo "  ✓ EPG节目单（XMLTV，7天回看，时移）"
-echo "  ✓ 频道分组、二级分组、搜索、台标、收藏"
-echo "  ✓ JS脚本、Headers、Host配置（UI及存储）"
-echo "  ✓ 本地文件、离线缓存（UI入口）"
-echo ""
+echo "  包含所有核心功能，已修复资源编译错误。"
 echo "  现在进入 android 目录执行: ./gradlew assembleDebug"
 echo "=========================================="
