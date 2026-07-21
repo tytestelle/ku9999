@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 强制完整重建（修复所有错误）
+# fix_build.sh - 最终稳定版（运行时异常捕获 + 代码健壮性）
 set -e
 
 echo "=========================================="
-echo "  🔥 强制完整重建所有源代码和资源"
+echo "  🚀 构建稳定版酷9播放器（含运行时保护）"
 echo "=========================================="
 
 # ---------- 1. 修复 build.gradle ----------
@@ -36,16 +36,84 @@ sed -i '/com.google.android.exoplayer:exoplayer/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-hls/d' "$APP_GRADLE"
 sed -i '/com.google.android.exoplayer:exoplayer-ui/d' "$APP_GRADLE"
 
-# ---------- 2. 彻底删除旧代码和资源 ----------
+# ---------- 2. 删除旧代码 ----------
 SRC_DIR="android/app/src/main/java/com/ku9/player"
 RES_DIR="android/app/src/main/res"
-rm -rf "$SRC_DIR"
-rm -rf "$RES_DIR/layout" "$RES_DIR/menu" "$RES_DIR/drawable" "$RES_DIR/values"
+rm -rf "$SRC_DIR" "$RES_DIR/layout" "$RES_DIR/menu" "$RES_DIR/drawable" "$RES_DIR/values"
 mkdir -p "$SRC_DIR" "$RES_DIR/layout" "$RES_DIR/menu" "$RES_DIR/drawable" "$RES_DIR/values"
 
-# ---------- 3. 创建所有 Kotlin 文件（最简正确版本） ----------
+# ---------- 3. 创建 Kotlin 文件（运行时安全版本） ----------
 
-# 3.1 Channel.kt
+# 3.1 Ku9Application.kt（增强异常捕获）
+cat > "$SRC_DIR/Ku9Application.kt" << 'EOF'
+package com.ku9.player
+
+import android.app.Application
+import android.os.Environment
+import android.util.Log
+import android.widget.Toast
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.text.SimpleDateFormat
+import java.util.*
+
+class Ku9Application : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        // 设置全局异常处理器
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            handleException(thread, throwable)
+        }
+    }
+
+    private fun handleException(thread: Thread, throwable: Throwable) {
+        val sw = StringWriter()
+        val pw = PrintWriter(sw)
+        throwable.printStackTrace(pw)
+        val stackTrace = sw.toString()
+
+        // 写入日志文件
+        try {
+            val time = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val file = File(getExternalFilesDir(null), "crash_$time.log")
+            file.parentFile?.mkdirs()
+            FileOutputStream(file).use { fos ->
+                fos.write("Thread: ${thread.name}\n".toByteArray())
+                fos.write("Exception: ${throwable.message}\n".toByteArray())
+                fos.write(stackTrace.toByteArray())
+            }
+            Log.e("Ku9App", "Crash logged to ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("Ku9App", "Failed to write crash log", e)
+        }
+
+        // 打印到 logcat
+        Log.e("Ku9App", "Uncaught exception in thread ${thread.name}", throwable)
+
+        // 显示 Toast（如果可能）
+        try {
+            Toast.makeText(applicationContext, "应用崩溃: ${throwable.message}", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            // ignore
+        }
+
+        // 如果系统有默认处理器，交给它
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        if (defaultHandler != null && defaultHandler !is Ku9Application) {
+            defaultHandler.uncaughtException(thread, throwable)
+        } else {
+            // 否则自行退出
+            android.os.Process.killProcess(android.os.Process.myPid())
+            System.exit(1)
+        }
+    }
+}
+EOF
+
+# 3.2 Channel.kt
 cat > "$SRC_DIR/Channel.kt" << 'EOF'
 package com.ku9.player
 
@@ -62,7 +130,7 @@ data class Channel(
 )
 EOF
 
-# 3.2 Group.kt
+# 3.3 Group.kt
 cat > "$SRC_DIR/Group.kt" << 'EOF'
 package com.ku9.player
 
@@ -74,7 +142,7 @@ data class Group(
 )
 EOF
 
-# 3.3 EpgProgram.kt
+# 3.4 EpgProgram.kt
 cat > "$SRC_DIR/EpgProgram.kt" << 'EOF'
 package com.ku9.player
 
@@ -86,7 +154,7 @@ data class EpgProgram(
 )
 EOF
 
-# 3.4 M3UParser.kt（修正泛型）
+# 3.5 M3UParser.kt（修复泛型）
 cat > "$SRC_DIR/M3UParser.kt" << 'EOF'
 package com.ku9.player
 
@@ -106,7 +174,7 @@ class M3UParser {
                     extinfLine = trimmed
                 }
                 trimmed.startsWith("#") -> {
-                    // ignore
+                    // 忽略其他注释
                 }
                 trimmed.isNotEmpty() && !trimmed.startsWith("#EXT") -> {
                     val url = trimmed
@@ -134,7 +202,7 @@ class M3UParser {
 }
 EOF
 
-# 3.5 TXTParser.kt
+# 3.6 TXTParser.kt
 cat > "$SRC_DIR/TXTParser.kt" << 'EOF'
 package com.ku9.player
 
@@ -155,7 +223,7 @@ class TXTParser {
 }
 EOF
 
-# 3.6 SourceManager.kt（修正类型）
+# 3.7 SourceManager.kt（安全初始化）
 cat > "$SRC_DIR/SourceManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -183,12 +251,16 @@ class SourceManager(private val context: Context) {
     val currentGroups: List<Group> get() = _currentGroups
 
     init {
-        // 内置示例源（Sintel 测试流）
-        _sources.add(Source(
-            name = "示例源",
-            url = "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
-            type = Source.Type.M3U
-        ))
+        // 内置示例源（HTTPS 安全）
+        try {
+            _sources.add(Source(
+                name = "示例源",
+                url = "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
+                type = Source.Type.M3U
+            ))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     suspend fun addSource(name: String, url: String, type: Source.Type): Boolean {
@@ -248,7 +320,7 @@ class SourceManager(private val context: Context) {
 }
 EOF
 
-# 3.7 EPGManager.kt（简化，避免错误）
+# 3.8 EPGManager.kt
 cat > "$SRC_DIR/EPGManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -313,7 +385,7 @@ class EPGManager {
 }
 EOF
 
-# 3.8 PlayerManager.kt（修正 API）
+# 3.9 PlayerManager.kt（简化、安全）
 cat > "$SRC_DIR/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -376,11 +448,15 @@ class PlayerManager(private val context: Context) {
         if (isReleased.get()) return
         currentUrl = url
         currentHeaders = headers
-        val player = initPlayer()
-        val mediaSource = buildMediaSource(url, headers)
-        player.setMediaSource(mediaSource)
-        player.prepare()
-        player.play()
+        try {
+            val player = initPlayer()
+            val mediaSource = buildMediaSource(url, headers)
+            player.setMediaSource(mediaSource)
+            player.prepare()
+            player.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun buildMediaSource(url: String, headers: Map<String, String>): MediaSource {
@@ -422,7 +498,7 @@ class PlayerManager(private val context: Context) {
 }
 EOF
 
-# 3.9 ChannelAdapter.kt
+# 3.10 ChannelAdapter.kt
 cat > "$SRC_DIR/ChannelAdapter.kt" << 'EOF'
 package com.ku9.player
 
@@ -472,7 +548,7 @@ class ChannelAdapter(
 }
 EOF
 
-# 3.10 GroupAdapter.kt
+# 3.11 GroupAdapter.kt
 cat > "$SRC_DIR/GroupAdapter.kt" << 'EOF'
 package com.ku9.player
 
@@ -513,7 +589,7 @@ class GroupAdapter(
 }
 EOF
 
-# 3.11 EpgAdapter.kt
+# 3.12 EpgAdapter.kt
 cat > "$SRC_DIR/EpgAdapter.kt" << 'EOF'
 package com.ku9.player
 
@@ -553,7 +629,7 @@ class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 }
 EOF
 
-# 3.12 MainActivity.kt（修正使用 lifecycleScope）
+# 3.13 MainActivity.kt（加 try-catch 和 Toast）
 cat > "$SRC_DIR/MainActivity.kt" << 'EOF'
 package com.ku9.player
 
@@ -578,30 +654,36 @@ class MainActivity : AppCompatActivity() {
     private val settingsFragment by lazy { SettingsFragment() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        try {
+            super.onCreate(savedInstanceState)
+            setContentView(R.layout.activity_main)
 
-        sourceManager = SourceManager(this)
+            sourceManager = SourceManager(this)
 
-        val navView = findViewById<BottomNavigationView>(R.id.nav_view)
-        navView.setOnNavigationItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.navigation_channels -> {
-                    switchFragment(channelListFragment)
-                    true
+            val navView = findViewById<BottomNavigationView>(R.id.nav_view)
+            navView.setOnNavigationItemSelectedListener { item ->
+                when (item.itemId) {
+                    R.id.navigation_channels -> {
+                        switchFragment(channelListFragment)
+                        true
+                    }
+                    R.id.navigation_epg -> {
+                        switchFragment(epgFragment)
+                        true
+                    }
+                    R.id.navigation_settings -> {
+                        switchFragment(settingsFragment)
+                        true
+                    }
+                    else -> false
                 }
-                R.id.navigation_epg -> {
-                    switchFragment(epgFragment)
-                    true
-                }
-                R.id.navigation_settings -> {
-                    switchFragment(settingsFragment)
-                    true
-                }
-                else -> false
             }
+            switchFragment(channelListFragment)
+        } catch (e: Exception) {
+            Toast.makeText(this, "初始化失败: ${e.message}", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
+            throw e
         }
-        switchFragment(channelListFragment)
     }
 
     private fun switchFragment(fragment: Fragment) {
@@ -624,7 +706,7 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_add_source -> {
-                Toast.makeText(this, "添加源", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "添加源功能待实现", Toast.LENGTH_SHORT).show()
                 return true
             }
             R.id.action_favorites -> {
@@ -638,7 +720,7 @@ class MainActivity : AppCompatActivity() {
 }
 EOF
 
-# 3.13 ChannelListFragment.kt
+# 3.14 ChannelListFragment.kt（安全加载）
 cat > "$SRC_DIR/ChannelListFragment.kt" << 'EOF'
 package com.ku9.player
 
@@ -662,7 +744,11 @@ class ChannelListFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        sourceManager = (requireActivity() as MainActivity).sourceManager
+        try {
+            sourceManager = (requireActivity() as MainActivity).sourceManager
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "无法获取源管理器", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onCreateView(
@@ -718,12 +804,16 @@ class ChannelListFragment : Fragment() {
 
     private fun loadSource() {
         lifecycleScope.launch {
-            val success = sourceManager.loadSource(0)
-            if (success) {
-                allChannels = sourceManager.getAllChannels()
-                updateUI()
-            } else {
-                Toast.makeText(requireContext(), "加载源失败", Toast.LENGTH_LONG).show()
+            try {
+                val success = sourceManager.loadSource(0)
+                if (success) {
+                    allChannels = sourceManager.getAllChannels()
+                    updateUI()
+                } else {
+                    Toast.makeText(requireContext(), "加载源失败", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "加载异常: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -769,7 +859,7 @@ class ChannelListFragment : Fragment() {
 }
 EOF
 
-# 3.14 EPGFragment.kt
+# 3.15 EPGFragment.kt（安全处理）
 cat > "$SRC_DIR/EPGFragment.kt" << 'EOF'
 package com.ku9.player
 
@@ -842,21 +932,25 @@ class EPGFragment : Fragment() {
         dateText?.text = dateFormat.format(calendar.time)
 
         lifecycleScope.launch {
-            val programs = epgManager.loadEPG(
-                channel.epgUrl.ifEmpty { "" },
-                channel.id,
-                offsetDays
-            )
-            adapter.submitList(programs)
-            if (programs.isEmpty()) {
-                dateText?.text = "${dateText?.text} (无节目)"
+            try {
+                val programs = epgManager.loadEPG(
+                    channel.epgUrl.ifEmpty { "" },
+                    channel.id,
+                    offsetDays
+                )
+                adapter.submitList(programs)
+                if (programs.isEmpty()) {
+                    dateText?.text = "${dateText?.text} (无节目)"
+                }
+            } catch (e: Exception) {
+                dateText?.text = "加载失败"
             }
         }
     }
 }
 EOF
 
-# 3.15 SettingsFragment.kt（修正 ID）
+# 3.16 SettingsFragment.kt
 cat > "$SRC_DIR/SettingsFragment.kt" << 'EOF'
 package com.ku9.player
 
@@ -884,13 +978,12 @@ class SettingsFragment : Fragment() {
         val decoderSwitch = view.findViewById<Switch>(R.id.switch_decoder)
         decoderSwitch?.setOnCheckedChangeListener { _, isChecked ->
             Toast.makeText(requireContext(), if (isChecked) "硬件解码" else "软件解码", Toast.LENGTH_SHORT).show()
-            // 可通知 PlayerManager 切换
         }
     }
 }
 EOF
 
-# 3.16 ParserManager.kt
+# 3.17 ParserManager.kt
 cat > "$SRC_DIR/ParserManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -901,21 +994,39 @@ class ParserManager {
 }
 EOF
 
-# 3.17 Ku9Application.kt（可选，但保留）
-cat > "$SRC_DIR/Ku9Application.kt" << 'EOF'
-package com.ku9.player
-
-import android.app.Application
-
-class Ku9Application : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        // 可以添加全局初始化
-    }
-}
+# ---------- 4. 布局文件（略，仅创建 item_channel.xml 和必要的） ----------
+# 这里省略布局创建，但确保 item_channel.xml 存在且使用系统图标
+# 为避免重复，采用快速覆盖
+cat > "$RES_DIR/layout/item_channel.xml" << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center_vertical">
+    <ImageView
+        android:id="@+id/channel_logo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_menu_gallery" />
+    <TextView
+        android:id="@+id/channel_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="16dp"
+        android:textSize="18sp" />
+    <ImageView
+        android:id="@+id/favorite_icon"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@android:drawable/star_off"
+        android:contentDescription="收藏" />
+</LinearLayout>
 EOF
 
-# ---------- 4. 创建布局资源 ----------
+# 其他布局 (快速创建)
 cat > "$RES_DIR/layout/activity_main.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1024,36 +1135,7 @@ cat > "$RES_DIR/layout/fragment_settings.xml" << 'EOF'
 </LinearLayout>
 EOF
 
-cat > "$RES_DIR/layout/item_channel.xml" << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="16dp"
-    android:gravity="center_vertical">
-    <ImageView
-        android:id="@+id/channel_logo"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@android:drawable/ic_menu_gallery" />
-    <TextView
-        android:id="@+id/channel_name"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_marginStart="16dp"
-        android:textSize="18sp" />
-    <ImageView
-        android:id="@+id/favorite_icon"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:src="@android:drawable/star_off"
-        android:contentDescription="收藏" />
-</LinearLayout>
-EOF
-
-# ---------- 5. 菜单资源 ----------
+# 菜单
 cat > "$RES_DIR/menu/bottom_nav_menu.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -1088,7 +1170,7 @@ cat > "$RES_DIR/menu/main_menu.xml" << 'EOF'
 </menu>
 EOF
 
-# ---------- 6. 颜色和主题 ----------
+# 颜色和主题
 cat > "$RES_DIR/values/colors.xml" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -1117,7 +1199,7 @@ cat > "$RES_DIR/values/themes.xml" << 'EOF'
 </resources>
 EOF
 
-# ---------- 7. drawable ----------
+# drawable（用于 Manifest 引用，如果仍然引用）
 cat > "$RES_DIR/drawable/ic_launcher_foreground.xml" << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -1139,10 +1221,11 @@ cat > "$RES_DIR/drawable/ic_launcher_foreground.xml" << 'EOF'
 </vector>
 EOF
 
-# ---------- 8. 修复 AndroidManifest.xml ----------
+# ---------- 5. 修改 AndroidManifest.xml ----------
 MANIFEST="android/app/src/main/AndroidManifest.xml"
-cp "$MANIFEST" "$MANIFEST.bak" 2>/dev/null || true
-cat > "$MANIFEST" << 'EOF'
+if [ ! -f "$MANIFEST" ]; then
+    mkdir -p android/app/src/main
+    cat > "$MANIFEST" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ku9.player">
@@ -1155,9 +1238,7 @@ cat > "$MANIFEST" << 'EOF'
     <application
         android:name=".Ku9Application"
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher_foreground"
         android:label="酷9播放器"
-        android:roundIcon="@drawable/ic_launcher_foreground"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ku9Player"
         android:usesCleartextTraffic="true">
@@ -1172,11 +1253,32 @@ cat > "$MANIFEST" << 'EOF'
     </application>
 </manifest>
 EOF
+else
+    # 移除图标引用
+    sed -i 's/ android:icon="[^"]*"//g' "$MANIFEST"
+    sed -i 's/ android:roundIcon="[^"]*"//g' "$MANIFEST"
+    # 设置 Ku9Application
+    if ! grep -q 'android:name=".Ku9Application"' "$MANIFEST"; then
+        sed -i 's/<application /<application android:name=".Ku9Application" /' "$MANIFEST"
+    fi
+    # 添加 usesCleartextTraffic
+    if ! grep -q 'android:usesCleartextTraffic="true"' "$MANIFEST"; then
+        sed -i 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
+    fi
+    # 权限
+    for perm in INTERNET ACCESS_NETWORK_STATE READ_EXTERNAL_STORAGE; do
+        if ! grep -q "android.permission.$perm" "$MANIFEST"; then
+            sed -i "/<manifest/a\\
+    <uses-permission android:name=\"android.permission.$perm\" />" "$MANIFEST"
+        fi
+    done
+fi
 
-# ---------- 9. 清理构建 ----------
+# ---------- 6. 清理构建缓存 ----------
 rm -rf android/app/build
 
 echo "=========================================="
-echo "  ✅ 完全重建完成（所有错误已修复）"
-echo "  现在构建将 100% 成功"
+echo "  ✅ 构建脚本完成（运行时异常捕获已增强）"
+echo "  如果应用仍闪退，请查看 /sdcard/Android/data/com.ku9.player/files/ 下的日志"
+echo "  或使用 adb logcat 获取详细堆栈"
 echo "=========================================="
