@@ -1,56 +1,73 @@
 #!/bin/bash
-# fix_build.sh - 将项目完全替换为 witv 源码
+# fix_build.sh - 完整替换为 witv 源码（包含所有 Gradle 配置）
 set -e
 
 echo "=========================================="
-echo "  🔄 替换为 witv 源码"
+echo "  🔄 完整替换为 witv 源码"
 echo "=========================================="
 
 # 1. 克隆 witv 仓库到临时目录
 TMP_DIR=$(mktemp -d)
+echo "📥 克隆 witv 仓库..."
 git clone --depth 1 https://github.com/whyun-android/witv.git "$TMP_DIR"
 
-# 2. 备份当前 android 目录（以防万一）
+# 2. 备份当前 android 目录（如果存在）
 if [ -d "android" ]; then
     mv android android.bak
     echo "📦 已备份原 android 目录为 android.bak"
 fi
 
-# 3. 复制 witv 的 app 模块到 android 目录
-mkdir -p android
-cp -r "$TMP_DIR/app"/* android/
+# 3. 复制整个项目结构（包含所有 Gradle 配置文件）
+echo "📁 复制项目文件..."
+cp -r "$TMP_DIR" android
 
-# 4. 复制根目录的 gradle 文件
-cp "$TMP_DIR/build.gradle" android/build.gradle 2>/dev/null || true
-cp "$TMP_DIR/settings.gradle" android/settings.gradle 2>/dev/null || true
-cp -r "$TMP_DIR/gradle" android/gradle 2>/dev/null || true
-cp "$TMP_DIR/gradlew" android/gradlew 2>/dev/null || true
-cp "$TMP_DIR/gradlew.bat" android/gradlew.bat 2>/dev/null || true
+# 4. 删除临时目录中的 .git 文件夹（避免冲突）
+rm -rf android/.git
 
 # 5. 清理临时目录
 rm -rf "$TMP_DIR"
 
-# 6. 修改包名（从 com.whyun.witv 改为 com.ku9.player）
-# 重命名 Java 包目录
-if [ -d "android/src/main/java/com/whyun/witv" ]; then
-    mkdir -p android/src/main/java/com/ku9
-    mv android/src/main/java/com/whyun/witv android/src/main/java/com/ku9/player
-    rm -rf android/src/main/java/com/whyun
+# 6. 修改包名：com.whyun.witv → com.ku9.player
+echo "📝 修改包名..."
+
+# 6.1 重命名 Java 包目录
+if [ -d "android/app/src/main/java/com/whyun/witv" ]; then
+    mkdir -p android/app/src/main/java/com/ku9
+    mv android/app/src/main/java/com/whyun/witv android/app/src/main/java/com/ku9/player
+    rm -rf android/app/src/main/java/com/whyun
 fi
 
-# 7. 全局替换包名和引用
-find android -type f -name "*.java" -exec sed -i 's/com\.whyun\.witv/com.ku9.player/g' {} \;
-find android -type f -name "*.xml" -exec sed -i 's/com\.whyun\.witv/com.ku9.player/g' {} \;
-find android -type f -name "*.gradle" -exec sed -i 's/com\.whyun\.witv/com.ku9.player/g' {} \;
-find android -type f -name "*.properties" -exec sed -i 's/com\.whyun\.witv/com.ku9.player/g' {} \;
+# 6.2 替换所有文件中的包名引用
+find android -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" -o -name "*.properties" -o -name "*.kt" \) -exec sed -i 's/com\.whyun\.witv/com.ku9.player/g' {} \;
 
-# 8. 修改应用名称（从 WiTV 改为 酷9播放器）
+# 6.3 修改 app/build.gradle 中的 namespace 和 applicationId
+sed -i 's/namespace '\''com\.whyun\.witv'\''/namespace '\''com.ku9.player'\''/g' android/app/build.gradle
+sed -i 's/applicationId "com\.whyun\.witv"/applicationId "com.ku9.player"/g' android/app/build.gradle
+
+# 7. 修改应用名称：WiTV → 酷9播放器
+echo "📝 修改应用名称..."
 find android -type f -name "strings.xml" -exec sed -i 's/WiTV/酷9播放器/g' {} \;
 
-# 9. 清理构建缓存
+# 8. 修改 settings.gradle 中的项目名称（如果有）
+if [ -f "android/settings.gradle" ]; then
+    sed -i "s/rootProject.name = 'WiTV'/rootProject.name = 'Ku9Player'/g" android/settings.gradle
+fi
+
+# 9. 给 gradlew 添加执行权限
+chmod +x android/gradlew
+
+# 10. 清理构建缓存
 rm -rf android/build android/app/build
 
 echo "=========================================="
 echo "  ✅ 替换完成！"
+echo ""
+echo "  项目结构："
+echo "  - 根目录: android/"
+echo "  - Gradle 配置: android/build.gradle, android/settings.gradle"
+echo "  - 应用模块: android/app/"
+echo "  - 包名: com.ku9.player"
+echo "  - 应用名: 酷9播放器"
+echo ""
 echo "  现在执行: cd android && ./gradlew assembleDebug"
 echo "=========================================="
