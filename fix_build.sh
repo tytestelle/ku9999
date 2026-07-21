@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 终极修复（SourceManager 使用 when 直接赋值）
+# fix_build.sh - 最终完整版（修复 SourceManager 中 Group 构造）
 set -e
 
 echo "=========================================="
-echo "  🔧 最终修复版（SourceManager 采用 when）"
+echo "  🔧 最终修复版（命名参数修正）"
 echo "=========================================="
 
 # 清理旧文件
@@ -329,7 +329,7 @@ cat > android/app/src/main/res/layout/item_epg.xml << 'EOF'
 </LinearLayout>
 EOF
 
-# ---------- Drawable 资源 ----------
+# ---------- Drawable ----------
 for icon in channels epg settings add favorite favorite_border refresh channel_placeholder launcher_foreground; do
     case $icon in
         channels) path="M4,6h16v2H4V6zm0,5h16v2H4v-2zm0,5h16v2H4v-2z" ;;
@@ -538,7 +538,7 @@ class EPGManager {
 }
 EOF
 
-# ---------- 关键修复：SourceManager（使用 when 直接赋值，避免类型推断歧义） ----------
+# ---------- 关键修复：SourceManager 使用命名参数 ----------
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
 import android.content.Context
@@ -573,16 +573,14 @@ class SourceManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
-                // 使用 when 分支直接赋值，不经过中间变量，避免类型推断问题
                 when (src.type) {
                     Source.Type.M3U -> {
-                        val parser = M3UParser()
-                        _groups = parser.parse(content)
+                        _groups = M3UParser().parse(content)
                     }
                     Source.Type.TXT -> {
-                        val parser = TXTParser()
-                        val channels = parser.parse(content)
-                        _groups = listOf(Group("默认", channels))
+                        val channels = TXTParser().parse(content)
+                        // 使用命名参数，避免参数顺序错误
+                        _groups = listOf(Group(name = "默认", channels = channels))
                     }
                 }
                 true
@@ -1113,6 +1111,6 @@ EOF
 rm -rf android/app/build
 
 echo "=========================================="
-echo "  ✅ 修复完成！所有文件已生成且编译通过"
+echo "  ✅ 修复完成！本次修正了 Group 构造参数顺序问题"
 echo "  现在执行: cd android && ./gradlew assembleDebug"
 echo "=========================================="
