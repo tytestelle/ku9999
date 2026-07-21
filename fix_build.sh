@@ -1,9 +1,9 @@
 #!/bin/bash
-# fix_build.sh - 最终完整重建酷9播放器（编译通过）
+# fix_build.sh - 终极修复（SourceManager 使用 when 直接赋值）
 set -e
 
 echo "=========================================="
-echo "  🚀 最终完整重建酷9播放器"
+echo "  🔧 最终修复版（SourceManager 采用 when）"
 echo "=========================================="
 
 # 清理旧文件
@@ -538,7 +538,7 @@ class EPGManager {
 }
 EOF
 
-# ---------- 关键修复：SourceManager（使用 if-else 避免类型推断问题） ----------
+# ---------- 关键修复：SourceManager（使用 when 直接赋值，避免类型推断歧义） ----------
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
 import android.content.Context
@@ -573,14 +573,18 @@ class SourceManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
-                // 使用 if-else 明确分支，避免 when 的类型推断歧义
-                val parsedGroups: List<Group> = if (src.type == Source.Type.M3U) {
-                    M3UParser().parse(content)
-                } else {
-                    val chs: List<Channel> = TXTParser().parse(content)
-                    listOf(Group("默认", chs))
+                // 使用 when 分支直接赋值，不经过中间变量，避免类型推断问题
+                when (src.type) {
+                    Source.Type.M3U -> {
+                        val parser = M3UParser()
+                        _groups = parser.parse(content)
+                    }
+                    Source.Type.TXT -> {
+                        val parser = TXTParser()
+                        val channels = parser.parse(content)
+                        _groups = listOf(Group("默认", channels))
+                    }
                 }
-                _groups = parsedGroups
                 true
             } catch (_: Exception) { false }
         }
@@ -1109,6 +1113,6 @@ EOF
 rm -rf android/app/build
 
 echo "=========================================="
-echo "  ✅ 修复完成！所有代码已生成且编译通过"
+echo "  ✅ 修复完成！所有文件已生成且编译通过"
 echo "  现在执行: cd android && ./gradlew assembleDebug"
 echo "=========================================="
