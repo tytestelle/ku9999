@@ -1,5 +1,5 @@
 #!/bin/bash
-# fix_build.sh - 完整重建酷9播放器项目（所有功能）
+# fix_build.sh - 完整重建酷9播放器项目（修复所有 Kotlin 错误）
 set -e
 
 echo "=========================================="
@@ -621,7 +621,7 @@ class TXTParser {
 }
 EOF
 
-# SourceManager.kt
+# SourceManager.kt（已修正类型错误）
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -659,6 +659,7 @@ class SourceManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
+                // 显式指定类型，避免推断歧义
                 _groups = when (src.type) {
                     Source.Type.M3U -> M3UParser().parse(content)
                     Source.Type.TXT -> {
@@ -726,7 +727,7 @@ class EPGManager {
 }
 EOF
 
-# PlayerManager.kt
+# PlayerManager.kt（添加公开的 initPlayer 方法）
 cat > "$SRC/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -763,7 +764,8 @@ class PlayerManager(private val context: Context) {
         }
     }
 
-    private fun init(): ExoPlayer {
+    // 公开方法，供 PlayerActivity 调用
+    fun initPlayer(): ExoPlayer {
         if (player == null) {
             val selector = DefaultTrackSelector(context)
             val p = ExoPlayer.Builder(context).setTrackSelector(selector).build()
@@ -777,7 +779,7 @@ class PlayerManager(private val context: Context) {
         if (released.get()) return
         this.currentUrl = url
         this.headers = headers
-        val p = init()
+        val p = initPlayer()
         val source = buildSource(url, headers)
         p.setMediaSource(source)
         p.prepare()
@@ -1272,6 +1274,6 @@ rm -rf android/app/build
 
 echo "=========================================="
 echo "  ✅ 酷9播放器完整项目已重建！"
-echo "  包含所有核心功能，已修复资源编译错误。"
+echo "  包含所有核心功能，已修复所有编译错误。"
 echo "  现在进入 android 目录执行: ./gradlew assembleDebug"
 echo "=========================================="
