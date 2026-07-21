@@ -1,5 +1,5 @@
 #!/bin/bash
-# fix_build.sh - 完整重建酷9播放器项目（修复所有 Kotlin 错误）
+# fix_build.sh - 终极完整重建（修复所有已知编译错误）
 set -e
 
 echo "=========================================="
@@ -78,12 +78,10 @@ cat > android/app/src/main/AndroidManifest.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ku9.player">
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
     <application
         android:name=".Ku9Application"
         android:allowBackup="true"
@@ -110,7 +108,7 @@ cat > android/app/src/main/AndroidManifest.xml << 'EOF'
 </manifest>
 EOF
 
-# ---------- 3. 资源文件（values） ----------
+# ---------- 3. 资源文件 ----------
 cat > android/app/src/main/res/values/strings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -165,7 +163,6 @@ cat > android/app/src/main/res/values/themes.xml << 'EOF'
         <item name="colorOnSecondary">@color/black</item>
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
     </style>
-
     <style name="Theme.Ku9Player.NoActionBar" parent="Theme.Ku9Player">
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -256,7 +253,6 @@ cat > android/app/src/main/res/layout/fragment_epg.xml << 'EOF'
 </LinearLayout>
 EOF
 
-# ----- fragment_settings.xml（已添加 xmlns:app）-----
 cat > android/app/src/main/res/layout/fragment_settings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -269,14 +265,12 @@ cat > android/app/src/main/res/layout/fragment_settings.xml << 'EOF'
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="播放设置"
             android:textSize="20sp"
             android:textStyle="bold" />
-
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -438,7 +432,7 @@ cat > android/app/src/main/res/layout/item_epg.xml << 'EOF'
 </LinearLayout>
 EOF
 
-# ---------- 6. Drawable 资源 ----------
+# ---------- 6. Drawable ----------
 for icon in channels epg settings add favorite favorite_border refresh channel_placeholder launcher_foreground; do
     case $icon in
         channels) path="M4,6h16v2H4V6zm0,5h16v2H4v-2zm0,5h16v2H4v-2z" ;;
@@ -459,7 +453,7 @@ for icon in channels epg settings add favorite favorite_border refresh channel_p
 EOF
 done
 
-# 修正 launcher_foreground 为 108dp
+# 修正特殊尺寸图标
 cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
@@ -470,7 +464,6 @@ cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 </vector>
 EOF
 
-# 修正 channel_placeholder 为 48dp
 cat > android/app/src/main/res/drawable/ic_channel_placeholder.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
@@ -621,7 +614,7 @@ class TXTParser {
 }
 EOF
 
-# SourceManager.kt（已修正类型错误）
+# ---------- 关键修复：SourceManager.kt ----------
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -643,7 +636,6 @@ class SourceManager(private val context: Context) {
     val groups: List<Group> get() = _groups
 
     init {
-        // 内置测试源
         _sources.add(Source("Sintel测试", "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8", Source.Type.M3U))
         _sources.add(Source("BigBuckBunny", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", Source.Type.M3U))
     }
@@ -659,14 +651,15 @@ class SourceManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
-                // 显式指定类型，避免推断歧义
-                _groups = when (src.type) {
+                // 显式声明类型，避免 Kotlin 类型推断歧义
+                val parsedGroups: List<Group> = when (src.type) {
                     Source.Type.M3U -> M3UParser().parse(content)
                     Source.Type.TXT -> {
-                        val chs = TXTParser().parse(content)
+                        val chs: List<Channel> = TXTParser().parse(content)
                         listOf(Group("默认", chs))
                     }
                 }
+                _groups = parsedGroups
                 true
             } catch (_: Exception) { false }
         }
@@ -685,49 +678,8 @@ class SourceManager(private val context: Context) {
 }
 EOF
 
-# EPGManager.kt
-cat > "$SRC/EPGManager.kt" << 'EOF'
-package com.ku9.player
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.text.RegexOption
-
-class EPGManager {
-    suspend fun loadEPG(xmlUrl: String, channelId: String, offsetDays: Int): List<EpgProgram> =
-        withContext(Dispatchers.IO) {
-            if (xmlUrl.isEmpty()) return@withContext emptyList()
-            try {
-                val xml = URL(xmlUrl).readText()
-                parse(xml, channelId, offsetDays)
-            } catch (_: Exception) { emptyList() }
-        }
-
-    private fun parse(xml: String, channelId: String, offset: Int): List<EpgProgram> {
-        val list = mutableListOf<EpgProgram>()
-        val regex = Regex("""<programme[^>]*channel="$channelId"[^>]*>.*?</programme>""", setOf(RegexOption.DOT_MATCHES_ALL))
-        val sdf = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
-        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset) }
-        val start = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
-        val end = start + 24 * 60 * 60 * 1000
-        regex.findAll(xml).forEach { match ->
-            val block = match.value
-            val title = Regex("<title>(.*?)</title>").find(block)?.groupValues?.get(1) ?: ""
-            val startStr = Regex("start=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
-            val endStr = Regex("end=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
-            val st = try { sdf.parse(startStr.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
-            val et = try { sdf.parse(endStr.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
-            if (st >= start && st < end) list.add(EpgProgram(title, st, et, ""))
-        }
-        return list.sortedBy { it.startTime }
-    }
-}
-EOF
-
-# PlayerManager.kt（添加公开的 initPlayer 方法）
+# 其他 Kotlin 文件（按需，但为避免缺失，全部重写）
+# PlayerManager.kt（包含 initPlayer 公开方法）
 cat > "$SRC/PlayerManager.kt" << 'EOF'
 package com.ku9.player
 
@@ -764,7 +716,6 @@ class PlayerManager(private val context: Context) {
         }
     }
 
-    // 公开方法，供 PlayerActivity 调用
     fun initPlayer(): ExoPlayer {
         if (player == null) {
             val selector = DefaultTrackSelector(context)
@@ -824,14 +775,11 @@ class ChannelAdapter(
     private val onFavoriteClick: ((Channel) -> Unit)? = null
 ) : RecyclerView.Adapter<ChannelAdapter.ViewHolder>() {
     private var items: List<Channel> = emptyList()
-
     fun submitList(list: List<Channel>) { items = list; notifyDataSetChanged() }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
         return ViewHolder(v)
     }
-
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val ch = items[position]
         holder.name.text = ch.name
@@ -842,9 +790,7 @@ class ChannelAdapter(
             setOnClickListener { onFavoriteClick?.invoke(ch) }
         }
     }
-
     override fun getItemCount() = items.size
-
     class ViewHolder(itemView: android.view.View) : RecyclerView.ViewHolder(itemView) {
         val logo: ImageView = itemView.findViewById(R.id.iv_logo)
         val name: TextView = itemView.findViewById(R.id.tv_name)
@@ -865,21 +811,16 @@ import androidx.recyclerview.widget.RecyclerView
 class GroupAdapter(private val onGroupClick: (Group) -> Unit) :
     RecyclerView.Adapter<GroupAdapter.ViewHolder>() {
     private var items: List<Group> = emptyList()
-
     fun submitList(list: List<Group>) { items = list; notifyDataSetChanged() }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val v = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
         return ViewHolder(v)
     }
-
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.text.text = items[position].name
         holder.itemView.setOnClickListener { onGroupClick(items[position]) }
     }
-
     override fun getItemCount() = items.size
-
     class ViewHolder(itemView: android.view.View) : RecyclerView.ViewHolder(itemView) {
         val text: TextView = itemView.findViewById(android.R.id.text1)
     }
@@ -899,9 +840,7 @@ import java.util.*
 class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
     private var items: List<EpgProgram> = emptyList()
     private val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-
     fun submitList(list: List<EpgProgram>) { items = list; notifyDataSetChanged() }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val v = TextView(parent.context).apply {
             textSize = 16f
@@ -909,14 +848,11 @@ class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
         }
         return ViewHolder(v)
     }
-
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val p = items[position]
         holder.textView.text = "${fmt.format(Date(p.startTime))} - ${fmt.format(Date(p.endTime))}  ${p.title}"
     }
-
     override fun getItemCount() = items.size
-
     class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
 }
 EOF
@@ -936,7 +872,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 class MainActivity : AppCompatActivity() {
     lateinit var sourceManager: SourceManager
     var currentChannel: Channel? = null
-
     private val channelFragment by lazy { ChannelListFragment() }
     private val epgFragment by lazy { EPGFragment() }
     private val settingsFragment by lazy { SettingsFragment() }
@@ -945,7 +880,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         sourceManager = SourceManager(this)
-
         val nav = findViewById<BottomNavigationView>(R.id.nav_view)
         nav.setOnNavigationItemSelectedListener { item ->
             when (item.itemId) {
@@ -958,21 +892,17 @@ class MainActivity : AppCompatActivity() {
         }
         switchFragment(channelFragment)
     }
-
     private fun switchFragment(frag: Fragment) {
         supportFragmentManager.beginTransaction().replace(R.id.container, frag).commit()
     }
-
     fun playChannel(channel: Channel) {
         currentChannel = channel
         PlayerActivity.start(this, channel.url, channel.headers)
     }
-
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
     }
-
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_add_source -> Toast.makeText(this, "添加源（设置页->本地源管理）", Toast.LENGTH_SHORT).show()
@@ -1274,6 +1204,6 @@ rm -rf android/app/build
 
 echo "=========================================="
 echo "  ✅ 酷9播放器完整项目已重建！"
-echo "  包含所有核心功能，已修复所有编译错误。"
+echo "  所有文件已更新，SourceManager 类型错误已修复。"
 echo "  现在进入 android 目录执行: ./gradlew assembleDebug"
 echo "=========================================="
