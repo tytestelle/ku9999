@@ -1,12 +1,12 @@
 #!/bin/bash
-# fix_build.sh - 终极完整重建（修复所有已知编译错误）
+# fix_build.sh - 完整重建酷9播放器（确保编译通过）
 set -e
 
 echo "=========================================="
 echo "  🚀 重建完整酷9播放器项目"
 echo "=========================================="
 
-# ---------- 清理旧文件 ----------
+# 清理旧文件
 rm -rf android/app/src/main/java/com/ku9/player
 rm -rf android/app/src/main/res/layout
 rm -rf android/app/src/main/res/menu
@@ -18,17 +18,15 @@ mkdir -p android/app/src/main/res/menu
 mkdir -p android/app/src/main/res/drawable
 mkdir -p android/app/src/main/res/values
 
-# ---------- 1. build.gradle ----------
+# ---------- build.gradle ----------
 cat > android/app/build.gradle << 'EOF'
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
 }
-
 android {
     namespace 'com.ku9.player'
     compileSdk 34
-
     defaultConfig {
         applicationId "com.ku9.player"
         minSdk 21
@@ -36,11 +34,9 @@ android {
         versionCode 1
         versionName "1.0"
     }
-
     buildFeatures {
         viewBinding true
     }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -55,7 +51,6 @@ android {
         jvmTarget = '1.8'
     }
 }
-
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -66,14 +61,13 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
     implementation 'androidx.media3:media3-exoplayer:1.4.0'
     implementation 'androidx.media3:media3-exoplayer-hls:1.4.0'
     implementation 'androidx.media3:media3-ui:1.4.0'
 }
 EOF
 
-# ---------- 2. AndroidManifest.xml ----------
+# ---------- AndroidManifest.xml ----------
 cat > android/app/src/main/AndroidManifest.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -91,24 +85,20 @@ cat > android/app/src/main/AndroidManifest.xml << 'EOF'
         android:supportsRtl="true"
         android:theme="@style/Theme.Ku9Player"
         android:usesCleartextTraffic="true">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".PlayerActivity"
+        <activity android:name=".PlayerActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.Ku9Player.NoActionBar" />
     </application>
 </manifest>
 EOF
 
-# ---------- 3. 资源文件 ----------
+# ---------- 资源文件 ----------
 cat > android/app/src/main/res/values/strings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -129,8 +119,6 @@ cat > android/app/src/main/res/values/strings.xml << 'EOF'
     <string name="js_script">JS脚本</string>
     <string name="custom_headers">自定义Headers</string>
     <string name="host_config">Host配置</string>
-    <string name="remote_input">远程输入</string>
-    <string name="reconnect">断线重连</string>
     <string name="local_file">本地文件</string>
     <string name="offline_cache">离线缓存</string>
 </resources>
@@ -165,7 +153,6 @@ cat > android/app/src/main/res/values/themes.xml << 'EOF'
     </style>
     <style name="Theme.Ku9Player.NoActionBar" parent="Theme.Ku9Player">
         <item name="android:windowFullscreen">true</item>
-        <item name="android:windowContentOverlay">@null</item>
     </style>
 </resources>
 EOF
@@ -182,7 +169,7 @@ cat > android/app/src/main/res/values/arrays.xml << 'EOF'
 </resources>
 EOF
 
-# ---------- 4. 菜单 ----------
+# ---------- 菜单 ----------
 cat > android/app/src/main/res/menu/bottom_nav_menu.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -201,7 +188,7 @@ cat > android/app/src/main/res/menu/main_menu.xml << 'EOF'
 </menu>
 EOF
 
-# ---------- 5. 布局文件 ----------
+# ---------- 布局 ----------
 cat > android/app/src/main/res/layout/activity_main.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -217,8 +204,7 @@ EOF
 cat > android/app/src/main/res/layout/activity_player.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="match_parent" android:layout_height="match_parent"
     android:keepScreenOn="true">
     <androidx.media3.ui.PlayerView android:id="@+id/player_view" android:layout_width="match_parent" android:layout_height="match_parent" />
     <ProgressBar android:id="@+id/loading_progress" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:visibility="gone" />
@@ -228,10 +214,8 @@ EOF
 cat > android/app/src/main/res/layout/fragment_channel_list.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/background">
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/background">
     <androidx.appcompat.widget.SearchView android:id="@+id/search_view" android:layout_width="match_parent" android:layout_height="wrap_content" android:queryHint="@string/search_hint" />
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_channels" android:layout_width="match_parent" android:layout_height="match_parent" android:scrollbars="vertical" />
 </LinearLayout>
@@ -240,11 +224,10 @@ EOF
 cat > android/app/src/main/res/layout/fragment_epg.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/background">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" android:padding="8dp">
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center" android:padding="8dp">
         <Button android:id="@+id/btn_prev_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="前一天" />
         <TextView android:id="@+id/tv_date" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="18sp" android:text="日期" />
         <Button android:id="@+id/btn_next_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="后一天" />
@@ -257,143 +240,58 @@ cat > android/app/src/main/res/layout/fragment_settings.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="match_parent" android:layout_height="match_parent"
     android:background="@color/background">
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="播放设置"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/hardware_decoder" />
-                    <Switch
-                        android:id="@+id/switch_decoder"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="16dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="播放设置" android:textSize="20sp" android:textStyle="bold" />
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="@string/hardware_decoder" />
+                    <Switch android:id="@+id/switch_decoder" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:checked="true" />
                 </LinearLayout>
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="12dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/aspect_ratio" />
-                    <Spinner
-                        android:id="@+id/spinner_aspect"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:entries="@array/aspect_ratio_options" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="12dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="@string/aspect_ratio" />
+                    <Spinner android:id="@+id/spinner_aspect" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:entries="@array/aspect_ratio_options" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="高级功能"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <EditText
-                    android:id="@+id/edit_js_script"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/js_script"
-                    android:minLines="3" />
-                <EditText
-                    android:id="@+id/edit_headers"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/custom_headers" />
-                <EditText
-                    android:id="@+id/edit_host"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/host_config" />
-                <Button
-                    android:id="@+id/btn_save_advanced"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="保存" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="高级功能" android:textSize="20sp" android:textStyle="bold" />
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <EditText android:id="@+id/edit_js_script" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:hint="@string/js_script" android:minLines="3" />
+                <EditText android:id="@+id/edit_headers" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/custom_headers" />
+                <EditText android:id="@+id/edit_host" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/host_config" />
+                <Button android:id="@+id/btn_save_advanced" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="保存" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="本地源管理"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <Button
-                    android:id="@+id/btn_local_file"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/local_file" />
-                <Button
-                    android:id="@+id/btn_offline_cache"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/offline_cache" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="本地源管理" android:textSize="20sp" android:textStyle="bold" />
+        <androidx.cardview.widget.CardView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" app:cardCornerRadius="8dp" app:cardElevation="2dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <Button android:id="@+id/btn_local_file" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:text="@string/local_file" />
+                <Button android:id="@+id/btn_offline_cache" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/offline_cache" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>
@@ -403,36 +301,36 @@ EOF
 cat > android/app/src/main/res/layout/item_channel.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="12dp"
-    android:background="@color/item_background"
-    android:elevation="1dp"
-    android:layout_margin="2dp"
-    android:gravity="center_vertical">
-    <ImageView android:id="@+id/iv_logo" android:layout_width="48dp" android:layout_height="48dp" android:src="@drawable/ic_channel_placeholder" android:scaleType="centerCrop" />
-    <TextView android:id="@+id/tv_name" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="12dp" android:textSize="18sp" android:textColor="@color/black" />
-    <ImageView android:id="@+id/iv_favorite" android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_favorite_border" android:padding="4dp" />
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:padding="12dp"
+    android:background="@color/item_background" android:elevation="1dp"
+    android:layout_margin="2dp" android:gravity="center_vertical">
+    <ImageView android:id="@+id/iv_logo" android:layout_width="48dp" android:layout_height="48dp"
+        android:src="@drawable/ic_channel_placeholder" android:scaleType="centerCrop" />
+    <TextView android:id="@+id/tv_name" android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:layout_marginStart="12dp" android:textSize="18sp" android:textColor="@color/black" />
+    <ImageView android:id="@+id/iv_favorite" android:layout_width="24dp" android:layout_height="24dp"
+        android:src="@drawable/ic_favorite_border" android:padding="4dp" />
 </LinearLayout>
 EOF
 
 cat > android/app/src/main/res/layout/item_epg.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:background="@color/item_background"
-    android:layout_margin="2dp">
-    <TextView android:id="@+id/tv_time" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="@color/purple_500" />
-    <TextView android:id="@+id/tv_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="16sp" android:textColor="@color/black" />
-    <TextView android:id="@+id/tv_desc" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="@color/teal_700" android:visibility="gone" />
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="8dp"
+    android:background="@color/item_background" android:layout_margin="2dp">
+    <TextView android:id="@+id/tv_time" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="14sp" android:textColor="@color/purple_500" />
+    <TextView android:id="@+id/tv_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="16sp" android:textColor="@color/black" />
+    <TextView android:id="@+id/tv_desc" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textColor="@color/teal_700" android:visibility="gone" />
 </LinearLayout>
 EOF
 
-# ---------- 6. Drawable ----------
+# ---------- Drawable 资源 ----------
+# 生成基本图标
 for icon in channels epg settings add favorite favorite_border refresh channel_placeholder launcher_foreground; do
     case $icon in
         channels) path="M4,6h16v2H4V6zm0,5h16v2H4v-2zm0,5h16v2H4v-2z" ;;
@@ -452,8 +350,6 @@ for icon in channels epg settings add favorite favorite_border refresh channel_p
 </vector>
 EOF
 done
-
-# 修正特殊尺寸图标
 cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
@@ -463,7 +359,6 @@ cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
     </group>
 </vector>
 EOF
-
 cat > android/app/src/main/res/drawable/ic_channel_placeholder.xml << 'EOF'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
@@ -472,13 +367,12 @@ cat > android/app/src/main/res/drawable/ic_channel_placeholder.xml << 'EOF'
 </vector>
 EOF
 
-# ---------- 7. Kotlin 源文件 ----------
+# ---------- Kotlin 源文件 ----------
 SRC="android/app/src/main/java/com/ku9/player"
 
-# Ku9Application.kt
+# Ku9Application
 cat > "$SRC/Ku9Application.kt" << 'EOF'
 package com.ku9.player
-
 import android.app.Application
 import android.util.Log
 import java.io.FileOutputStream
@@ -486,7 +380,6 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.*
-
 class Ku9Application : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -504,9 +397,7 @@ class Ku9Application : Application() {
                     fos.write(sw.toString().toByteArray())
                 }
                 Log.e("Ku9App", "Crash log: ${file.absolutePath}")
-            } catch (e: Exception) {
-                Log.e("Ku9App", "Failed to log crash", e)
-            }
+            } catch (e: Exception) { Log.e("Ku9App", "Failed to log crash", e) }
             android.os.Process.killProcess(android.os.Process.myPid())
             System.exit(1)
         }
@@ -514,10 +405,9 @@ class Ku9Application : Application() {
 }
 EOF
 
-# Channel.kt
+# Channel
 cat > "$SRC/Channel.kt" << 'EOF'
 package com.ku9.player
-
 data class Channel(
     val id: String = "",
     val name: String = "",
@@ -531,10 +421,9 @@ data class Channel(
 )
 EOF
 
-# Group.kt
+# Group
 cat > "$SRC/Group.kt" << 'EOF'
 package com.ku9.player
-
 data class Group(
     val id: String = "",
     val name: String = "",
@@ -543,10 +432,9 @@ data class Group(
 )
 EOF
 
-# EpgProgram.kt
+# EpgProgram
 cat > "$SRC/EpgProgram.kt" << 'EOF'
 package com.ku9.player
-
 data class EpgProgram(
     val title: String,
     val startTime: Long,
@@ -555,10 +443,9 @@ data class EpgProgram(
 )
 EOF
 
-# M3UParser.kt
+# M3UParser
 cat > "$SRC/M3UParser.kt" << 'EOF'
 package com.ku9.player
-
 class M3UParser {
     fun parse(content: String): List<Group> {
         val groups = mutableListOf<Group>()
@@ -593,10 +480,9 @@ class M3UParser {
 }
 EOF
 
-# TXTParser.kt
+# TXTParser
 cat > "$SRC/TXTParser.kt" << 'EOF'
 package com.ku9.player
-
 class TXTParser {
     fun parse(content: String): List<Channel> {
         val list = mutableListOf<Channel>()
@@ -604,9 +490,7 @@ class TXTParser {
             val t = line.trim()
             if (t.isNotEmpty() && !t.startsWith("#")) {
                 val parts = t.split(",", limit = 2)
-                if (parts.size == 2) {
-                    list.add(Channel(name = parts[0].trim(), url = parts[1].trim()))
-                }
+                if (parts.size == 2) list.add(Channel(name = parts[0].trim(), url = parts[1].trim()))
             }
         }
         return list
@@ -614,10 +498,50 @@ class TXTParser {
 }
 EOF
 
-# ---------- 关键修复：SourceManager.kt ----------
+# EPGManager（确保类名正确）
+cat > "$SRC/EPGManager.kt" << 'EOF'
+package com.ku9.player
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.text.RegexOption
+
+class EPGManager {
+    suspend fun loadEPG(xmlUrl: String, channelId: String, offsetDays: Int): List<EpgProgram> =
+        withContext(Dispatchers.IO) {
+            if (xmlUrl.isEmpty()) return@withContext emptyList()
+            try {
+                val xml = URL(xmlUrl).readText()
+                parse(xml, channelId, offsetDays)
+            } catch (_: Exception) { emptyList() }
+        }
+
+    private fun parse(xml: String, channelId: String, offset: Int): List<EpgProgram> {
+        val list = mutableListOf<EpgProgram>()
+        val regex = Regex("""<programme[^>]*channel="$channelId"[^>]*>.*?</programme>""", setOf(RegexOption.DOT_MATCHES_ALL))
+        val sdf = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset) }
+        val start = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
+        val end = start + 24 * 60 * 60 * 1000
+        regex.findAll(xml).forEach { match ->
+            val block = match.value
+            val title = Regex("<title>(.*?)</title>").find(block)?.groupValues?.get(1) ?: ""
+            val startStr = Regex("start=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
+            val endStr = Regex("end=\"(.*?)\"").find(block)?.groupValues?.get(1) ?: ""
+            val st = try { sdf.parse(startStr.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
+            val et = try { sdf.parse(endStr.replace("+0000", " +0000"))?.time ?: 0 } catch (_: Exception) { 0 }
+            if (st >= start && st < end) list.add(EpgProgram(title, st, et, ""))
+        }
+        return list.sortedBy { it.startTime }
+    }
+}
+EOF
+
+# SourceManager（显式类型）
 cat > "$SRC/SourceManager.kt" << 'EOF'
 package com.ku9.player
-
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -628,7 +552,6 @@ class SourceManager(private val context: Context) {
     data class Source(val name: String, val url: String, val type: Type, var enabled: Boolean = true) {
         enum class Type { M3U, TXT }
     }
-
     private val _sources = mutableListOf<Source>()
     val sources: List<Source> get() = _sources
     private var currentIndex = 0
@@ -651,7 +574,7 @@ class SourceManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 val content = if (src.url.startsWith("http")) URL(src.url).readText() else File(src.url).readText()
-                // 显式声明类型，避免 Kotlin 类型推断歧义
+                // 显式声明类型
                 val parsedGroups: List<Group> = when (src.type) {
                     Source.Type.M3U -> M3UParser().parse(content)
                     Source.Type.TXT -> {
@@ -678,11 +601,9 @@ class SourceManager(private val context: Context) {
 }
 EOF
 
-# 其他 Kotlin 文件（按需，但为避免缺失，全部重写）
-# PlayerManager.kt（包含 initPlayer 公开方法）
+# PlayerManager（含 initPlayer）
 cat > "$SRC/PlayerManager.kt" << 'EOF'
 package com.ku9.player
-
 import android.content.Context
 import android.net.Uri
 import android.os.Handler
@@ -760,10 +681,9 @@ class PlayerManager(private val context: Context) {
 }
 EOF
 
-# ChannelAdapter.kt
+# ChannelAdapter
 cat > "$SRC/ChannelAdapter.kt" << 'EOF'
 package com.ku9.player
-
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -799,10 +719,9 @@ class ChannelAdapter(
 }
 EOF
 
-# GroupAdapter.kt
+# GroupAdapter
 cat > "$SRC/GroupAdapter.kt" << 'EOF'
 package com.ku9.player
-
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.TextView
@@ -827,10 +746,9 @@ class GroupAdapter(private val onGroupClick: (Group) -> Unit) :
 }
 EOF
 
-# EpgAdapter.kt
+# EpgAdapter
 cat > "$SRC/EpgAdapter.kt" << 'EOF'
 package com.ku9.player
-
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -857,10 +775,9 @@ class EpgAdapter : RecyclerView.Adapter<EpgAdapter.ViewHolder>() {
 }
 EOF
 
-# MainActivity.kt
+# MainActivity
 cat > "$SRC/MainActivity.kt" << 'EOF'
 package com.ku9.player
-
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -920,10 +837,9 @@ class MainActivity : AppCompatActivity() {
 }
 EOF
 
-# ChannelListFragment.kt
+# ChannelListFragment
 cat > "$SRC/ChannelListFragment.kt" << 'EOF'
 package com.ku9.player
-
 import android.os.Bundle
 import android.view.*
 import android.widget.SearchView
@@ -1016,10 +932,9 @@ class ChannelListFragment : Fragment() {
 }
 EOF
 
-# EPGFragment.kt
+# EPGFragment
 cat > "$SRC/EPGFragment.kt" << 'EOF'
 package com.ku9.player
-
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -1082,10 +997,9 @@ class EPGFragment : Fragment() {
 }
 EOF
 
-# SettingsFragment.kt
+# SettingsFragment
 cat > "$SRC/SettingsFragment.kt" << 'EOF'
 package com.ku9.player
-
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -1100,12 +1014,10 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         val swDec = view.findViewById<Switch>(R.id.switch_decoder)
         swDec?.setOnCheckedChangeListener { _, isChecked ->
             Toast.makeText(requireContext(), if (isChecked) "硬件解码" else "软件解码", Toast.LENGTH_SHORT).show()
         }
-
         val spinner = view.findViewById<Spinner>(R.id.spinner_aspect)
         spinner?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -1113,18 +1025,15 @@ class SettingsFragment : Fragment() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-
         view.findViewById<Button>(R.id.btn_save_advanced)?.setOnClickListener {
             val js = view.findViewById<EditText>(R.id.edit_js_script)?.text.toString()
             val headers = view.findViewById<EditText>(R.id.edit_headers)?.text.toString()
             val host = view.findViewById<EditText>(R.id.edit_host)?.text.toString()
             Toast.makeText(requireContext(), "高级设置已保存（模拟）", Toast.LENGTH_SHORT).show()
         }
-
         view.findViewById<Button>(R.id.btn_local_file)?.setOnClickListener {
             Toast.makeText(requireContext(), "选择本地文件（功能需实现）", Toast.LENGTH_SHORT).show()
         }
-
         view.findViewById<Button>(R.id.btn_offline_cache)?.setOnClickListener {
             Toast.makeText(requireContext(), "离线缓存（功能需实现）", Toast.LENGTH_SHORT).show()
         }
@@ -1132,10 +1041,9 @@ class SettingsFragment : Fragment() {
 }
 EOF
 
-# PlayerActivity.kt
+# PlayerActivity
 cat > "$SRC/PlayerActivity.kt" << 'EOF'
 package com.ku9.player
-
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -1199,11 +1107,9 @@ class PlayerActivity : AppCompatActivity() {
 }
 EOF
 
-# ---------- 清理构建缓存 ----------
+# ---------- 清理并完成 ----------
 rm -rf android/app/build
-
 echo "=========================================="
-echo "  ✅ 酷9播放器完整项目已重建！"
-echo "  所有文件已更新，SourceManager 类型错误已修复。"
-echo "  现在进入 android 目录执行: ./gradlew assembleDebug"
+echo "  ✅ 酷9播放器项目已完整重建"
+echo "  请进入 android 目录执行 ./gradlew assembleDebug"
 echo "=========================================="
